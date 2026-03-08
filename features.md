@@ -1,6 +1,6 @@
-# 🏏 CricGenius Scorer - Feature Documentation
+# 🏏 CricScore - Feature Documentation
 
-CricGenius Scorer is a high-performance, mobile-first cricket scoring application designed for precision and ease of use. Below is a comprehensive list of all technical and functional features integrated into the current system.
+CricScore is a high-performance, mobile-first cricket scoring application designed for precision and ease of use. Below is a comprehensive list of all technical and functional features integrated into the current system.
 
 ## 🚀 Core Scoring Capabilities
 - **Real-time Innings Tracking**: Dynamic management of runs, wickets, and overs with instantaneous UI updates.
@@ -13,29 +13,28 @@ CricGenius Scorer is a high-performance, mobile-first cricket scoring applicatio
     - **Intelligent Extra-Runs Modal**: Selecting WIDE or NO_BALL triggers a secondary window to record boundary runs or additional runs taken.
     - Accurate accounting: Wides and No Balls correctly increment the total score and penalize the bowler WITHOUT incrementing the balls-faced count for the batter.
 - **Advanced Maiden Logic**: Maiden overs are calculated based on runs off the bat only. Extras (Wides, No Balls, Byes, Leg-Byes) do not prevent a maiden, ensuring statistical accuracy.
+- **Precision Roster Setup**:
+    - **11-Row Focus View**: The squad input area is calibrated to show exactly 11 players at a time, providing a clear visual confirmation of a full team.
+    - **Free-Form Control**: Squad lists perfectly respect manual spacing and ordering while auto-cleaning whitespace, allowing you to copy-paste exact batting orders directly in.
+    - **One-Click Clear**: Clear button to instantly reset your roster for a brand new lineup.
 
-## 👥 Player & Team Management
-- **Automatic Roster Sorting**: Whether using the default squad or custom entries, player lists are automatically sorted alphabetically upon match start.
-- **Persistent Global Uppercase**: All team names and player names are automatically normalized to uppercase for a consistent, professional look.
-- **Dynamic Strike Management**: 
-    - Automatic strike rotation based on odd/even runs.
-    - Manual **'Swap Ends'** functionality for mid-over tactical changes or corrections.
-- **Interactive Player Selection**: 
-    - Dedicated modals for selecting the next batter after a wicket.
-    - Ability to switch bowlers at any point via the dedicated **'Change Bowler'** action.
+- **Live-Management Cockpit**: 
+    - **Mid-Match Renaming**: Instantly fix typos in team names or active player names (Batter/Bowler) by clicking directly on the name in the header or cockpit.
+    - **Dynamic Squad Expansion**: Missing a player? Use the **'+ ADD NEW PLAYER'** button within the selection modals to add new players to the squad on the fly without interrupting the match flow.
+    - **In-Modal Squad Editing**: Every player in the selection list features an **Edit (✏️)** shortcut for rapid data correction.
 - **Wicket Complexity**: Supports multiple dismissal types including Bowled, Caught, LBW, Run Out, and Stumped.
     - **Fielder Tracking**: Automatic prompt for fielder selection on Caught, Stumped, and Run Out dismissals.
 
-## 📱 User Experience & Interface
-- **Responsive Mobile-First Design**:
-    - **Thumb-Optimized Keypad**: Scoring controls are pinned to the bottom for effortless one-handed use.
-    - **Safe Area Support**: Bottom controls respect modern smartphone navigation zones.
-- **Interactive Dashboard**:
-    - **Live Commentary**: Auto-scrolling, human-readable commentary for every delivery (e.g., "SUNIL to RAJU, FOUR! Beautifully played.").
-    - **Run Rate Analytics**: Real-time display of Current Run Rate (CRR) and Required Run Rate (RRR) for second innings.
+- **Ergonomic Single-Page Viewport**:
+    - **Zero-Scroll Mandate**: The entire scoring interface (Scoreboard, Commentary, Cockpit, and Keypad) fits perfectly within a single screen, eliminating vertical scrolling and keeping all critical actions at your fingertips.
+    - **High-Density Layout**: Optimized spacing and tactile button scaling provide a professional broadcast aesthetic while maximizing operational speed.
+    - **Safe Area Support**: Bottom controls respect modern smartphone navigation zones and feature minimized whitespace for better density.
+- **Integrated Match Intelligence**:
+    - **Run Rate Analytics**: Real-time display of Current Run Rate (CRR) and Required Run Rate (RRR).
     - **Target Chase Equation**: Dynamic display of "Runs needed in XX balls" during the second innings.
-- **Full Digital Scorecard**: A comprehensive modal displaying detailed batting stats (4s, 6s, SR) and bowling figures (O, M, R, W, Econ) for both current and previous innings.
-- **Multi-Level Undo**: Deep state history tracking allows for reversing any scoring mistake ball-by-ball.
+- **Full Digital Scorecard**: A comprehensive modal displaying detailed batting stats (4s, 6s, SR) and bowling figures (O, M, R, W, Econ).
+- **Match Conclusion Screen**: Features a dramatic win/tie state screen with a 1-click **Email Result** feature that compiles an ASCII broadcast scorecard of *both* innings to any custom email directly from your phone.
+- **Top-Bar Reset Security**: Ensure that the "Start New Match" functionality is always globally accessible but gated behind a custom modal to entirely prevent accidental resets.
 
 ## ⚙️ Match Intelligence
 - **Configurable Match Length**: Defaulted to **15 overs**, but fully adjustable during setup (1-50 overs).
@@ -45,5 +44,5 @@ CricGenius Scorer is a high-performance, mobile-first cricket scoring applicatio
 ## 🛠 Technical Architecture
 - **Framework**: Built with **React 19** and **TypeScript** for Type-safety.
 - **Styling**: **Tailwind CSS** (via CDN) for high-performance, utility-first styling.
-- **Icons & Visuals**: Accessible emoji-based iconography (🏏, 🎾, 🚶, 🏆) integrated into the design.
-- **No-Database Lightweight**: Runs entirely in the client-side browser, making it incredibly fast and deployment-ready via simple static hosting (AWS S3, Vercel, etc.).
+- **Persistence**: Match state is automatically mirrored to `localStorage`, allowing for safe page refreshes without data loss.
+- **No-Database Lightweight**: Runs entirely in the client-side browser, making it incredibly fast and deployment-ready via simple static hosting.

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { InningsState, BallEvent, ExtraType, WicketType } from '../types';
+import { InningsState, BallEvent, ExtraType, WicketType, Bowler } from '../types';
 import Scoreboard from './Scoreboard';
 
 interface MatchViewProps {
@@ -7,11 +7,12 @@ interface MatchViewProps {
     previousInnings?: InningsState;
     totalOvers: number;
     onInningsEnd: (inningsState: InningsState) => void;
+    onResetMatch: () => void;
 }
 
 type ModalType = 'NONE' | 'WICKET_TYPE' | 'BATTER_SELECT' | 'BOWLER_SELECT' | 'FIELDER_SELECT' | 'EXTRA_RUNS';
 
-const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, totalOvers, onInningsEnd }) => {
+const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, totalOvers, onInningsEnd, onResetMatch }) => {
     const [innings, setInnings] = useState<InningsState>(initialState);
     const [history, setHistory] = useState<InningsState[]>([]);
     const [lastCommentary, setLastCommentary] = useState<string>("Match started. Waiting for first ball.");
@@ -25,8 +26,45 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
 
     const commentaryEndRef = useRef<HTMLDivElement>(null);
 
+    // --- Live Persistence ---
     useEffect(() => {
-        // Sync state if initial state changes (e.g. new innings start)
+        const savedLive = localStorage.getItem('cric-scorer-live-innings');
+        if (savedLive) {
+            try {
+                const data = JSON.parse(savedLive);
+                // Only restore if the innings numbers match
+                if (data.innings.inningNumber === initialState.inningNumber &&
+                    data.innings.battingTeamName === initialState.battingTeamName) {
+                    setInnings(data.innings);
+                    setHistory(data.history || []);
+                    setLastCommentary(data.lastCommentary || "");
+                }
+            } catch (e) {
+                console.error("Failed to restore live innings", e);
+            }
+        }
+    }, [initialState.inningNumber, initialState.battingTeamName]);
+
+    useEffect(() => {
+        const liveState = {
+            innings,
+            history,
+            lastCommentary
+        };
+        localStorage.setItem('cric-scorer-live-innings', JSON.stringify(liveState));
+    }, [innings, history, lastCommentary]);
+
+    useEffect(() => {
+        // Only reset if this is a genuinely NEW innings (not a refresh)
+        const savedLive = localStorage.getItem('cric-scorer-live-innings');
+        if (savedLive) {
+            const data = JSON.parse(savedLive);
+            if (data.innings.inningNumber === initialState.inningNumber &&
+                data.innings.battingTeamName === initialState.battingTeamName) {
+                return; // Don't reset if we have saved data for this innings
+            }
+        }
+
         setInnings(initialState);
         setHistory([]);
         setLastCommentary(initialState.inningNumber === 2 ? "Second innings started!" : "Match started.");
@@ -36,9 +74,21 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
         commentaryEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [lastCommentary]);
 
-    const getCurrentStriker = () => innings.players[innings.strikerId];
-    const getCurrentNonStriker = () => innings.players[innings.nonStrikerId];
-    const getCurrentBowler = () => innings.bowlers[innings.currentBowlerId];
+    const getCurrentStriker = () => innings.players[innings.strikerId] || { name: 'Selecting...', runs: 0, ballsFaced: 0, fours: 0, sixes: 0, id: '' };
+    const getCurrentNonStriker = () => innings.players[innings.nonStrikerId] || { name: 'Selecting...', runs: 0, ballsFaced: 0, fours: 0, sixes: 0, id: '' };
+    const getCurrentBowler = () => innings.bowlers[innings.currentBowlerId] || { name: 'Selecting...', overs: 0, balls: 0, maidens: 0, runsConceded: 0, wickets: 0, id: '' };
+    const getPreviousBowler = () => {
+        if (innings.allBalls.length === 0) return null;
+        const currentBowlerName = getCurrentBowler().name;
+        const lastDifferentBall = [...innings.allBalls].reverse().find(b => b.bowlerName !== currentBowlerName);
+        if (!lastDifferentBall) return null;
+        return (Object.values(innings.bowlers) as Bowler[]).find(b => b.name === lastDifferentBall.bowlerName) || null;
+    };
+
+    const striker = getCurrentStriker();
+    const nonStriker = getCurrentNonStriker();
+    const bowler = getCurrentBowler();
+    const prevBowler = getPreviousBowler();
 
     // Calculate equation for 2nd innings
     const getEquation = () => {
@@ -88,6 +138,64 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
             strikerId: prev.nonStrikerId,
             nonStrikerId: prev.strikerId
         }));
+    };
+
+    const handleRenamePlayer = (playerId: string) => {
+        const player = innings.players[playerId];
+        const newName = prompt(`Rename ${player.name} to:`, player.name);
+        if (newName && newName.trim()) {
+            setInnings(prev => {
+                const next = { ...prev };
+                next.players[playerId] = { ...player, name: newName.trim().toUpperCase() };
+                return next;
+            });
+            setLastCommentary(`Renamed player to ${newName.trim().toUpperCase()}`);
+        }
+    };
+
+    const handleRenameBowler = (bowlerId: string) => {
+        const b = innings.bowlers[bowlerId];
+        const newName = prompt(`Rename ${b.name} to:`, b.name);
+        if (newName && newName.trim()) {
+            setInnings(prev => {
+                const next = { ...prev };
+                next.bowlers[bowlerId] = { ...b, name: newName.trim().toUpperCase() };
+                return next;
+            });
+            setLastCommentary(`Renamed bowler to ${newName.trim().toUpperCase()}`);
+        }
+    };
+
+    const handleRenameTeam = (isBattingTeam: boolean) => {
+        const curName = isBattingTeam ? innings.battingTeamName : innings.bowlingTeamName;
+        const newName = prompt(`Rename ${curName} to:`, curName);
+        if (newName && newName.trim()) {
+            setInnings(prev => {
+                const next = { ...prev };
+                if (isBattingTeam) next.battingTeamName = newName.trim().toUpperCase();
+                else next.bowlingTeamName = newName.trim().toUpperCase();
+                return next;
+            });
+        }
+    };
+
+    const handleQuickAddPlayer = (isBatter: boolean) => {
+        const name = prompt(`Enter new ${isBatter ? 'Batter' : 'Bowler'} name:`);
+        if (name && name.trim()) {
+            const upName = name.trim().toUpperCase();
+            const id = `${isBatter ? 'bat' : 'bowl'}_${Date.now()}`;
+            setInnings(prev => {
+                const next = { ...prev };
+                if (isBatter) {
+                    next.players[id] = { id, name: upName, runs: 0, ballsFaced: 0, fours: 0, sixes: 0, isOut: false };
+                    next.battingOrder = [...next.battingOrder, id];
+                } else {
+                    next.bowlers[id] = { id, name: upName, overs: 0, balls: 0, maidens: 0, runsConceded: 0, wickets: 0 };
+                    next.bowlingOrder = [...next.bowlingOrder, id];
+                }
+                return next;
+            });
+        }
     };
 
     const handleScore = async (runs: number, isWicket = false, wicketType = WicketType.NONE, fielderName?: string) => {
@@ -227,22 +335,22 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
         setPendingExtra(ExtraType.NONE);
         setPendingWicketInfo(null);
 
-        // Logic for next actions (Modals)
-        setModalView('NONE'); // Close wicket type modal if open
-
-        if (isWicket) {
-            setModalView('BATTER_SELECT');
-        } else if (overCompleted) {
-            // If match not over, select next bowler
-            if (nextInnings.overs < totalOvers) {
-                setModalView('BOWLER_SELECT');
-            }
-        }
-
         // Check Match/Innings End Conditions
         const isAllOut = nextInnings.totalWickets >= 10;
         const isOversDone = nextInnings.overs >= totalOvers;
         const isTargetChased = nextInnings.target && nextInnings.totalRuns >= nextInnings.target;
+        const isMatchEnding = isAllOut || isOversDone || isTargetChased;
+
+        // Logic for next actions (Modals)
+        setModalView('NONE'); // Close wicket type modal if open
+
+        if (!isMatchEnding) {
+            if (isWicket) {
+                setModalView('BATTER_SELECT');
+            } else if (overCompleted) {
+                setModalView('BOWLER_SELECT');
+            }
+        }
 
         // Commentary
         let commentary = generateSimpleCommentary(newBallEvent);
@@ -251,7 +359,7 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
         }
         setLastCommentary(commentary);
 
-        if (isAllOut || (isOversDone && !overCompleted) || isTargetChased) {
+        if (isMatchEnding) {
             // Delay slightly so users see the wicket/run
             setTimeout(() => onInningsEnd(nextInnings), 500);
         }
@@ -261,16 +369,27 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
 
     const handleBatterSelected = (newBatterId: string) => {
         setInnings(prev => {
-            const updated = {
-                ...prev,
-                strikerId: newBatterId
-            };
-            // Check if bowler needs to be changed after batter selection (e.g. wicket on last ball)
-            if (updated.balls === 0 && updated.overs > 0 && updated.overs < totalOvers) {
+            const updated = { ...prev };
+
+            if (updated.strikerId === "") {
+                updated.strikerId = newBatterId;
+            } else if (updated.nonStrikerId === "") {
+                updated.nonStrikerId = newBatterId;
+            } else {
+                updated.strikerId = newBatterId;
+            }
+
+            // Decide what modal to show next
+            if (updated.nonStrikerId === "") {
+                // Keep BATTER_SELECT open to choose the second opener
+            } else if (updated.currentBowlerId === "") {
+                setModalView('BOWLER_SELECT');
+            } else if (updated.balls === 0 && updated.overs > 0 && updated.overs < totalOvers) {
                 setModalView('BOWLER_SELECT');
             } else {
                 setModalView('NONE');
             }
+
             return updated;
         });
     };
@@ -279,7 +398,7 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
         setInnings(prev => ({
             ...prev,
             currentBowlerId: newBowlerId,
-            currentOver: [] // Clear over display once bowler is chosen
+            currentOver: []
         }));
         setModalView('NONE');
     };
@@ -334,26 +453,31 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
     };
 
     const WicketTypeModal = () => (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[150] p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl animate-fade-in text-slate-900">
-                <h3 className="text-xl font-bold mb-6 text-center">Dismissal Type</h3>
-                <div className="grid grid-cols-2 gap-3">
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center z-[200] p-4 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-sm shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-500">
+                <div className="p-6 bg-slate-950 border-b border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-1.5 h-6 bg-red-600 rounded-full"></div>
+                        <h3 className="text-lg font-black uppercase tracking-tighter italic text-white">Dismissal Type</h3>
+                    </div>
+                </div>
+                <div className="p-6 grid grid-cols-2 gap-3">
                     {[WicketType.BOWLED, WicketType.CAUGHT, WicketType.LBW, WicketType.RUN_OUT, WicketType.STUMPED].map((type) => (
                         <button
                             key={type}
                             onClick={() => handleScore(0, true, type)}
-                            className="py-3 px-4 bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all uppercase"
+                            className="py-5 px-4 bg-white/5 text-slate-200 border border-white/5 rounded-2xl font-black hover:bg-red-600 hover:text-white hover:border-red-400 transition-all active:scale-95 uppercase text-xs italic"
                         >
-                            {type}
+                            {type.replace('_', ' ')}
                         </button>
                     ))}
+                    <button
+                        onClick={() => setModalView('NONE')}
+                        className="col-span-2 mt-4 py-4 px-4 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:text-white transition-all"
+                    >
+                        Abort
+                    </button>
                 </div>
-                <button
-                    onClick={() => setModalView('NONE')}
-                    className="mt-6 w-full py-3 text-slate-500 hover:text-slate-800 font-medium transition-colors"
-                >
-                    Cancel
-                </button>
             </div>
         </div>
     );
@@ -364,27 +488,48 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
             return !p.isOut && id !== innings.strikerId && id !== innings.nonStrikerId;
         });
 
+        const title = innings.strikerId === "" ? "Select Striker" : (innings.nonStrikerId === "" ? "Select Non-Striker" : "Select New Batter");
+
         return (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[150] p-4 backdrop-blur-sm">
-                <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[80vh] text-slate-900">
-                    <div className="p-4 bg-slate-50 border-b border-slate-100">
-                        <h3 className="text-lg font-bold text-slate-800">Select New Batter</h3>
+            <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center z-[200] p-4 backdrop-blur-md animate-in fade-in duration-300">
+                <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[70vh] animate-in zoom-in-95 duration-500">
+                    <div className="p-6 bg-slate-950 border-b border-white/5 flex items-center justify-between shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
+                            <h3 className="text-lg font-black uppercase tracking-tighter italic text-white">{title}</h3>
+                        </div>
+                        <span className="text-2xl animate-bounce">🏏</span>
                     </div>
-                    <div className="overflow-y-auto p-2 pb-10">
+                    <div className="overflow-y-auto p-4 space-y-3 pb-8 scrollbar-hide flex-1">
                         {availableBatters.length === 0 ? (
-                            <p className="p-4 text-center text-slate-500">No batters remaining.</p>
+                            <p className="p-8 text-center text-slate-500 font-bold uppercase tracking-widest text-[10px]">No batters remaining in squad.</p>
                         ) : (
                             availableBatters.map(id => (
                                 <button
                                     key={id}
                                     onClick={() => handleBatterSelected(id)}
-                                    className="w-full text-left px-4 py-3 hover:bg-blue-50 rounded-lg flex justify-between items-center group transition-colors border-b border-slate-50 last:border-0"
+                                    className="w-full text-left px-5 py-4 bg-white/5 hover:bg-indigo-600 rounded-2xl flex justify-between items-center group transition-all active:scale-95 border border-white/5"
                                 >
-                                    <span className="font-medium text-slate-700 group-hover:text-blue-700">{innings.players[id].name}</span>
-                                    <span className="text-blue-500 opacity-0 group-hover:opacity-100">Select →</span>
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <span className="text-lg opacity-40 group-hover:opacity-100 transition-opacity">🏏</span>
+                                        <span className="font-black text-slate-200 group-hover:text-white uppercase tracking-tight text-sm italic truncate">{innings.players[id].name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs p-2 hover:bg-white/20 rounded-lg transition-colors" onClick={(e) => { e.stopPropagation(); handleRenamePlayer(id); }}>✏️</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 group-hover:text-white opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">Select</span>
+                                    </div>
                                 </button>
                             ))
                         )}
+                    </div>
+                    <div className="p-4 border-t border-white/10 bg-slate-950/50 flex flex-col gap-2 shrink-0">
+                        <button
+                            onClick={() => handleQuickAddPlayer(true)}
+                            className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-xl shadow-indigo-600/20"
+                        >
+                            + ADD NEW PLAYER TO SQUAD
+                        </button>
+                        <button onClick={() => setModalView('NONE')} className="w-full py-2 text-slate-500 text-[9px] font-black uppercase tracking-widest hover:text-white transition-colors">Close View</button>
                     </div>
                 </div>
             </div>
@@ -392,13 +537,27 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
     };
 
     const BowlerSelectModal = () => (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[150] p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[80vh] text-slate-900">
-                <div className="p-4 bg-slate-50 border-b border-slate-100">
-                    <h3 className="text-lg font-bold text-slate-800">Select Next Bowler</h3>
-                    <p className="text-xs text-slate-500">Previous: {getCurrentBowler().name}</p>
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center z-[200] p-4 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[75vh] animate-in zoom-in-95 duration-500">
+                <div className="p-6 bg-slate-950 border-b border-white/5 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-1.5 h-6 bg-purple-500 rounded-full"></div>
+                        <h3 className="text-lg font-black uppercase tracking-tighter italic text-white">
+                            {innings.allBalls.length === 0 ? "Opening Bowler" : "Next Bowler"}
+                        </h3>
+                    </div>
+                    <span className="text-2xl">🎾</span>
                 </div>
-                <div className="overflow-y-auto p-2 pb-12">
+                <div className="overflow-y-auto p-4 space-y-3 pb-8 scrollbar-hide flex-1">
+                    {innings.allBalls.length > 0 && (
+                        <>
+                            <div className="px-2 mb-2">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Previous Bowler</span>
+                                <span className="text-xs font-black text-indigo-400 uppercase italic">{getCurrentBowler()?.name || '---'}</span>
+                            </div>
+                            <div className="h-px bg-white/5 mx-2 my-4"></div>
+                        </>
+                    )}
                     {innings.bowlingOrder.map(id => {
                         const bowler = innings.bowlers[id];
                         const isCurrent = id === innings.currentBowlerId;
@@ -407,36 +566,63 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                                 key={id}
                                 onClick={() => handleBowlerSelected(id)}
                                 disabled={isCurrent}
-                                className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center border-b border-slate-50 last:border-0 ${isCurrent ? 'bg-slate-100 opacity-50 cursor-not-allowed' : 'hover:bg-green-50 group cursor-pointer'}`}
+                                className={`w-full text-left px-5 py-4 rounded-2xl flex justify-between items-center transition-all ${isCurrent ? 'bg-slate-800/30 opacity-20 cursor-not-allowed grayscale' : 'bg-white/5 hover:bg-purple-600 group active:scale-95 border border-white/5'}`}
                             >
-                                <div>
-                                    <span className={`font-medium ${isCurrent ? 'text-slate-400' : 'text-slate-700 group-hover:text-green-700'}`}>{bowler.name}</span>
-                                    <div className="text-xs text-slate-400">{bowler.overs}.{bowler.balls} overs, {bowler.wickets} wkts</div>
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <span className="text-lg opacity-40 group-hover:opacity-100 transition-opacity">🎾</span>
+                                    <div className="flex flex-col min-w-0">
+                                        <span className={`font-black uppercase tracking-tight text-sm italic truncate ${isCurrent ? 'text-slate-500' : 'text-slate-200 group-hover:text-white'}`}>{bowler.name}</span>
+                                        <div className="text-[10px] font-bold text-slate-500 group-hover:text-purple-200">{bowler.overs}.{bowler.balls} OVS • {bowler.wickets} WKT</div>
+                                    </div>
                                 </div>
-                                {!isCurrent && <span className="text-green-500 opacity-0 group-hover:opacity-100 text-xs">Bowl →</span>}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs p-2 hover:bg-white/20 rounded-lg transition-colors" onClick={(e) => { e.stopPropagation(); handleRenameBowler(id); }}>✏️</span>
+                                    {!isCurrent && <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 group-hover:text-white opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">Select</span>}
+                                </div>
                             </button>
                         );
                     })}
+                </div>
+                <div className="p-4 border-t border-white/10 bg-slate-950/50 flex flex-col gap-2 shrink-0">
+                    <button
+                        onClick={() => handleQuickAddPlayer(false)}
+                        className="w-full py-4 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-xl shadow-purple-600/20"
+                    >
+                        + ADD NEW BOWLER TO SQUAD
+                    </button>
+                    <button onClick={() => setModalView('NONE')} className="w-full py-2 text-slate-500 text-[9px] font-black uppercase tracking-widest hover:text-white transition-colors">Close View</button>
                 </div>
             </div>
         </div>
     );
 
     const ExtraRunsModal = () => (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[150] p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl animate-fade-in text-center text-slate-900">
-                <h3 className="text-xl font-bold mb-2 uppercase tracking-wide">
-                    {pendingExtra.replace('_', ' ')}
-                </h3>
-                <p className="text-slate-500 text-sm mb-6 font-medium">Any additional runs? (e.g. 4 if it went to the boundary)</p>
-                <div className="grid grid-cols-3 gap-3">
-                    {[0, 1, 2, 3, 4, 6].map(r => (
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center z-[200] p-4 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-500 text-center">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 mb-4">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 italic">
+                        {pendingExtra.replace('_', ' ')} Detected
+                    </span>
+                </div>
+                <h3 className="text-2xl font-black text-white uppercase tracking-tighter italic mb-2">Additional Runs?</h3>
+                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-8">Select any runs conceded from this delivery</p>
+                <div className="grid grid-cols-4 gap-2 md:gap-3">
+                    {[0, 1, 2, 3].map(r => (
                         <button
                             key={r}
                             onClick={() => handleScore(r)}
-                            className={`py-4 rounded-xl font-bold text-xl transition-all active:scale-95 shadow-sm border-b-4 ${r === 4 ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                                    r === 6 ? 'bg-purple-100 text-purple-700 border-purple-200' :
-                                        'bg-slate-100 text-slate-800 border-slate-200'
+                            className="py-5 sm:py-6 rounded-2xl font-black text-2xl sm:text-3xl transition-all active:scale-95 shadow-xl border-t border-white/10 bg-slate-900 text-white hover:bg-slate-800"
+                        >
+                            {r}
+                        </button>
+                    ))}
+                    {[4, 5, 6].map(r => (
+                        <button
+                            key={r}
+                            onClick={() => handleScore(r)}
+                            className={`py-5 sm:py-6 rounded-2xl font-black text-2xl sm:text-3xl transition-all active:scale-95 shadow-xl border-t border-white/10 ${r === 4 ? 'bg-blue-600 text-white shadow-blue-600/20' :
+                                    r === 5 ? 'bg-emerald-600 text-white shadow-emerald-600/20' :
+                                        'bg-purple-600 text-white shadow-purple-600/20'
                                 }`}
                         >
                             {r}
@@ -448,21 +634,23 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                         setPendingExtra(ExtraType.NONE);
                         setModalView('NONE');
                     }}
-                    className="mt-6 w-full py-3 text-slate-400 font-bold uppercase text-xs tracking-widest hover:text-slate-600 transition-colors"
+                    className="mt-8 w-full py-4 text-slate-500 font-black uppercase text-[10px] tracking-[0.2em] hover:text-white transition-colors"
                 >
-                    Cancel
+                    Ignore Extra
                 </button>
             </div>
         </div>
     );
 
-    const striker = getCurrentStriker();
-    const nonStriker = getCurrentNonStriker();
-    const bowler = getCurrentBowler();
     const equation = getEquation();
 
     return (
-        <div className="min-h-screen bg-slate-100 pb-48 md:pb-56">
+        <div className="h-full bg-slate-900 text-slate-100 flex flex-col overflow-hidden selection:bg-indigo-500/30">
+            {innings.strikerId === "" && <BatterSelectModal />}
+            {/* Modal rendering remains the same... */}
+            {innings.strikerId !== "" && innings.nonStrikerId === "" && <BatterSelectModal />}
+            {innings.strikerId !== "" && innings.nonStrikerId !== "" && innings.currentBowlerId === "" && <BowlerSelectModal />}
+
             {modalView === 'WICKET_TYPE' && <WicketTypeModal />}
             {modalView === 'BATTER_SELECT' && <BatterSelectModal />}
             {modalView === 'BOWLER_SELECT' && <BowlerSelectModal />}
@@ -474,199 +662,200 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                     currentInnings={innings}
                     previousInnings={previousInnings}
                     onClose={() => setShowScoreboard(false)}
+                    onResetMatch={onResetMatch}
                 />
             )}
 
-            {/* Header Scoreboard */}
-            <div className="bg-slate-900 text-white p-6 shadow-lg sticky top-0 z-[100]">
-                <div className="max-w-4xl mx-auto">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <div className="flex items-center gap-3">
-                                <h2 className="text-blue-200 text-sm font-bold tracking-wider uppercase">{innings.battingTeamName} vs {innings.bowlingTeamName}</h2>
-                                <span className="bg-blue-600 text-[10px] px-2 py-0.5 rounded font-bold uppercase">{innings.inningNumber === 1 ? '1st Innings' : '2nd Innings'}</span>
-                            </div>
-                            <div className="flex items-baseline gap-3 mt-1">
-                                <span className="text-5xl font-bold">{innings.totalRuns}/{innings.totalWickets}</span>
-                                <span className="text-blue-300 font-mono text-xl">
-                                    ({innings.overs}.{innings.balls}/{totalOvers})
+            {/* Ultra-Slim Header (Fixed) */}
+            <div className="bg-slate-950 text-white shadow-2xl border-b border-indigo-500/30 shrink-0">
+                <div className="max-w-4xl mx-auto px-4 py-2">
+                    <div className="flex justify-between items-center gap-4">
+                        <div className="flex-1 overflow-hidden">
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <span className="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest">{innings.inningNumber === 1 ? '1st' : '2nd'} INN</span>
+                                <span className="text-white text-[11px] font-black tracking-widest uppercase truncate cursor-pointer hover:text-blue-400 transition-colors" onClick={() => handleRenameTeam(true)}>
+                                    <span className="text-blue-400">{innings.battingTeamName}</span>
                                 </span>
                             </div>
-                            <div className="text-xs text-blue-300 mt-2 flex gap-4">
-                                <span>CRR: {innings.overs > 0 ? (innings.totalRuns / (innings.overs + innings.balls / 6)).toFixed(2) : '0.00'}</span>
-                                {innings.target && <span>Target: {innings.target}</span>}
-                                {innings.target && innings.inningNumber === 2 && (
-                                    <span className="text-yellow-400 font-bold">REQ: {(((innings.target - innings.totalRuns) / ((totalOvers * 6) - (innings.overs * 6 + innings.balls))) * 6).toFixed(2)}</span>
-                                )}
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black tracking-tighter text-white tabular-nums">
+                                    {innings.totalRuns}<span className="text-slate-500 mx-0.5 text-xl">/</span>{innings.totalWickets}
+                                </span>
+                                <span className="text-indigo-400 font-black text-sm leading-none tabular-nums">
+                                    {innings.overs}.{innings.balls} <span className="text-slate-600 text-[9px] tracking-tight">OVS</span>
+                                </span>
                             </div>
                         </div>
-                        <div className="text-right flex flex-col items-end gap-2">
+
+                        <div className="flex flex-col items-end">
                             <button
                                 onClick={() => setShowScoreboard(true)}
-                                className="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 transition"
+                                className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
                             >
-                                Full Scoreboard
+                                Scorecard 📋
                             </button>
-                            {equation && (
-                                <div className="bg-yellow-500/20 text-yellow-300 px-3 py-1 rounded text-xs font-bold border border-yellow-500/30">
-                                    {equation}
-                                </div>
+                            {innings.target && (
+                                <span className="text-[10px] font-black text-yellow-500 uppercase tracking-tighter mt-1">TGT: {innings.target}</span>
                             )}
                         </div>
                     </div>
                 </div>
             </div>
 
-
-            <div className="max-w-4xl mx-auto p-4 space-y-4">
-
-                {/* Main Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Batting Card */}
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden text-slate-900">
-                        <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
-                            <span className="text-xs font-bold text-slate-500 uppercase">Batting</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-slate-400">P'ship: {striker.runs + nonStriker.runs}</span>
-                                <button onClick={handleSwapEnds} className="text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase hover:bg-blue-100 transition-colors">⇄ Swap</button>
-                            </div>
+            {/* Main Live Dashboard Area (Centered and Tight) */}
+            <div className="flex-1 overflow-y-auto scrollbar-hide flex flex-col justify-center py-1">
+                <div className="max-w-4xl mx-auto w-full px-4 space-y-2 pb-2">
+                    {/* Active Player Cards */}
+                    <div className="grid grid-cols-2 gap-3">
+                        {/* Batters */}
+                        <div className="space-y-1 relative">
+                            {[striker, nonStriker].map((b, idx) => (
+                                <div key={b.id || idx} className={`flex justify-between items-center p-2.5 md:p-3 rounded-xl border transition-all ${idx === 0 ? 'bg-indigo-600 border-indigo-300 shadow-xl scale-105 z-10' : 'bg-slate-800 border-white/5 opacity-80'}`}>
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        <span className={`text-[11px] md:text-xs font-black truncate uppercase tracking-widest cursor-pointer hover:opacity-80 transition-opacity ${idx === 0 ? 'text-white' : 'text-slate-200'}`} onClick={() => handleRenamePlayer(b.id)}>
+                                            {b.name || '---'} {idx === 0 && '🏏'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-baseline gap-1">
+                                        <span className={`text-lg md:text-xl font-black ${idx === 0 ? 'text-white' : 'text-slate-200'}`}>{b.runs}</span>
+                                        <span className={`text-[10px] md:text-[11px] font-black ${idx === 0 ? 'text-indigo-100' : 'text-slate-500'}`}>({b.ballsFaced})</span>
+                                    </div>
+                                </div>
+                            ))}
+                            <button
+                                onClick={handleSwapEnds}
+                                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-white text-indigo-950 rounded-full text-xs border-2 border-slate-900 active:scale-90 transition-all shadow-xl z-20"
+                            >
+                                🔄
+                            </button>
                         </div>
-                        <div className="divide-y divide-slate-100">
-                            <div className={`p-4 flex justify-between items-center ${innings.strikerId === striker.id ? 'bg-blue-50/50 border-l-4 border-blue-500' : 'pl-5'}`}>
-                                <div>
-                                    <button onClick={handleSwapEnds} className="font-bold flex items-center gap-2 text-lg hover:text-blue-600 transition-colors">
-                                        {striker.name} <span className="text-blue-600 text-sm">🏏</span>
-                                    </button>
-                                    <div className="text-xs text-slate-500 font-medium tracking-tight">4S: {striker.fours} // 6S: {striker.sixes}</div>
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-2xl font-bold">{striker.runs}</span>
-                                    <span className="text-xs text-slate-500 block font-medium">({striker.ballsFaced})</span>
-                                </div>
-                            </div>
-                            <div className={`p-4 flex justify-between items-center ${innings.strikerId === nonStriker.id ? 'bg-blue-50/50 border-l-4 border-blue-500' : 'pl-5'}`}>
-                                <div>
-                                    <button onClick={handleSwapEnds} className="font-bold text-slate-400 text-lg hover:text-blue-600 transition-colors">
-                                        {nonStriker.name}
-                                    </button>
-                                    <div className="text-xs text-slate-500 font-medium tracking-tight">4S: {nonStriker.fours} // 6S: {nonStriker.sixes}</div>
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-2xl font-bold text-slate-400">{nonStriker.runs}</span>
-                                    <span className="text-xs text-slate-500 block font-medium">({nonStriker.ballsFaced})</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* Bowling Card */}
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col text-slate-900">
-                        <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">Current Bowler</div>
-                        <div className="p-4 flex-1 flex flex-col justify-center cursor-pointer hover:bg-slate-50 transition" onClick={() => setModalView('BOWLER_SELECT')}>
-                            <div className="flex justify-between items-end mb-4">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xl font-bold flex items-center gap-2 uppercase">
-                                        {bowler.name} 🎾
-                                    </span>
-                                    <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200 uppercase font-bold">Change</span>
+                        {/* Bowlers */}
+                        <div className="space-y-1">
+                            <div className="flex justify-between items-center p-2.5 md:p-3 rounded-xl bg-slate-800 border border-white/10 shadow-inner h-full">
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-[9px] font-black text-slate-500 uppercase leading-none mb-1">Bowler</span>
+                                    <span className="text-[11px] md:text-xs font-black text-indigo-300 uppercase truncate cursor-pointer hover:text-white transition-colors" onClick={() => handleRenameBowler(bowler.id)}>{bowler.name || '---'}</span>
                                 </div>
                                 <div className="text-right">
-                                    <span className="text-3xl font-bold">{bowler.wickets}</span>
-                                    <span className="text-slate-500 text-sm font-medium">-{bowler.runsConceded}</span>
+                                    <div className="text-lg md:text-xl font-black text-white leading-none tabular-nums">{bowler.wickets}<span className="text-indigo-500 mx-0.5">/</span>{bowler.runsConceded}</div>
+                                    <div className="text-[10px] md:text-[11px] font-black text-slate-500 tabular-nums uppercase mt-0.5">({bowler.overs}.{bowler.balls})</div>
                                 </div>
-                            </div>
-                            <div className="flex gap-1 mb-2 h-2">
-                                {[...Array(6)].map((_, i) => (
-                                    <div key={i} className={`flex-1 rounded-full ${i < innings.balls ? 'bg-green-500' : 'bg-slate-200'}`}></div>
-                                ))}
-                            </div>
-                            <div className="flex justify-between text-xs text-slate-500 font-medium uppercase tracking-tight">
-                                <span>{bowler.overs}.{bowler.balls} OVERS</span>
-                                <span>{bowler.maidens} MAIDENS</span>
                             </div>
                         </div>
                     </div>
-                </div>
 
+                    {/* Over Tracking (Prominent) */}
+                    <div className="bg-white/5 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-2xl">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Live Timeline</span>
+                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded-full">This Over</span>
+                        </div>
+                        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
+                            {innings.currentOver.length === 0 ? (
+                                <div className="flex items-center gap-2 text-slate-500">
+                                    <div className="w-8 h-8 rounded-full border-2 border-dashed border-slate-700 flex items-center justify-center animate-pulse">
+                                        <span className="text-[10px] italic">0</span>
+                                    </div>
+                                    <span className="text-[10px] font-black uppercase tracking-tighter opacity-50 italic">Waiting...</span>
+                                </div>
+                            ) : (
+                                innings.currentOver.map((ball, idx) => (
+                                    <div key={idx} className="flex flex-col items-center gap-1.5 animate-in slide-in-from-right-4 duration-300">
+                                        <div className={`flex-shrink-0 w-9 h-9 md:w-11 md:h-11 rounded-full flex items-center justify-center text-[13px] md:text-[15px] font-black border-2 transition-all shadow-xl ${ball.isWicket ? 'bg-red-500 text-white border-red-300 shadow-red-500/40' :
+                                            ball.runs === 4 ? 'bg-blue-600 text-white border-blue-400 shadow-blue-500/40' :
+                                                ball.runs === 6 ? 'bg-purple-600 text-white border-purple-400 shadow-purple-500/40' :
+                                                    ball.isExtra ? 'bg-amber-500 text-amber-950 border-amber-300 shadow-amber-500/40' :
+                                                        'bg-white text-slate-900 border-white shadow-white/10'
+                                            }`}>
+                                            {ball.isWicket ? 'W' : (ball.isExtra ? (ball.runs > 0 ? `${ball.runs}${ball.extraType[0]}` : ball.extraType[0]) : ball.runs)}
+                                        </div>
+                                        <span className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase">{ball.isExtra ? ball.extraType.split('_')[0] : 'RUN'}</span>
+                                    </div>
+                                ))
+                            )}
+                            {innings.currentOver.length > 0 && innings.currentOver.length < 6 && [...Array(6 - innings.currentOver.length)].map((_, i) => (
+                                <div key={`empty-${i}`} className="w-9 h-9 md:w-11 md:h-11 rounded-full border-2 border-dashed border-slate-700/50 flex items-center justify-center opacity-30">
+                                    <span className="text-[10px] text-slate-600 font-bold">•</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
 
-                {/* Commentary Box */}
-                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm min-h-[80px] flex flex-col justify-center relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-slate-100 text-slate-500 text-[10px] px-3 py-1 rounded-bl-xl font-bold uppercase tracking-widest">Commentary</div>
-                    <p className="text-slate-800 font-medium text-base leading-snug pr-4">
-                        <span className="text-blue-500 text-xl mr-2">❝</span>
-                        {lastCommentary}
-                    </p>
-                    <div ref={commentaryEndRef} />
+                    {/* Live Commentary & Equation */}
+                    <div className="space-y-2">
+                        <div className="bg-indigo-600/5 rounded-xl p-2.5 border border-indigo-500/10 shadow-inner">
+                            <div className="flex items-center gap-3">
+                                <span className="flex-shrink-0 text-[10px] font-black text-indigo-400 uppercase italic">LIVE</span>
+                                <p className="text-xs md:text-sm text-slate-200 font-bold tracking-wide italic uppercase leading-none truncate">{lastCommentary}</p>
+                            </div>
+                        </div>
+                        {equation && (
+                            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2 text-center">
+                                <span className="text-[10px] md:text-sm font-black text-yellow-500 uppercase tracking-[0.2em]">{equation}</span>
+                            </div>
+                        )}
+                    </div>
+                    <div ref={commentaryEndRef} className="h-0" />
                 </div>
             </div>
 
-            {/* Floating Controls */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] p-4 z-50 pb-8 md:pb-4 safe-area-bottom">
+            {/* Operations Cockpit (Fixed Bottom) */}
+            <div className="shrink-0 bg-slate-950 border-t border-white/5 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-[90]">
                 <div className="max-w-4xl mx-auto">
-                    {/* Action Bar (Undo, Swap, etc) */}
-                    <div className="flex justify-between gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide text-slate-900">
-                        <button
-                            onClick={handleUndo}
-                            disabled={history.length === 0}
-                            className="flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 disabled:opacity-50"
-                        >
-                            <span className="text-lg">↩</span>
-                            <span className="text-[10px] font-bold uppercase tracking-tighter">Undo</span>
+                    {/* Action Tabs */}
+                    <div className="grid grid-cols-4 border-b border-white/5">
+                        <button onClick={handleUndo} disabled={history.length === 0} className="py-2.5 md:py-4 flex flex-col items-center justify-center gap-1 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all border-r border-white/5 disabled:opacity-10">
+                            <span className="text-base text-indigo-400">↺</span>
+                            Undo
                         </button>
-                        <button
-                            onClick={handleSwapEnds}
-                            className="flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-lg bg-slate-50 text-slate-600 border border-slate-200"
-                        >
-                            <span className="text-lg">⇄</span>
-                            <span className="text-[10px] font-bold uppercase tracking-tighter">Swap</span>
+                        <button onClick={() => setModalView('BOWLER_SELECT')} className="py-2.5 md:py-4 flex flex-col items-center justify-center gap-1 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all border-r border-white/5">
+                            <span className="text-base">🎾</span>
+                            Change Bowler
                         </button>
-                        <button
-                            onClick={() => setModalView('BOWLER_SELECT')}
-                            className="flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-lg bg-slate-50 text-slate-600 border border-slate-200"
-                        >
-                            <span className="text-lg">🎾</span>
-                            <span className="text-[10px] font-bold uppercase tracking-tighter">Bowler</span>
+                        <button onClick={() => setModalView('BATTER_SELECT')} className="py-2.5 md:py-4 flex flex-col items-center justify-center gap-1 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all border-r border-white/5">
+                            <span className="text-base">🏏</span>
+                            Change Batter
                         </button>
-                        <button
-                            onClick={() => handleRetire(WicketType.RETIRED_HURT)}
-                            className="flex-1 min-w-[70px] flex flex-col items-center justify-center p-2 rounded-lg bg-slate-50 text-slate-600 border border-slate-200"
-                        >
-                            <span className="text-lg">🚶</span>
-                            <span className="text-[10px] font-bold uppercase tracking-tighter">Retire</span>
+                        <button onClick={() => handleRetire(WicketType.RETIRED_HURT)} className="py-2.5 md:py-4 flex flex-col items-center justify-center gap-1 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all">
+                            <span className="text-base">🤕</span>
+                            Hurt
                         </button>
                     </div>
 
-                    {/* Extras Toggles */}
-                    <div className="flex gap-2 mb-4 justify-center">
-                        {['WIDE', 'NO_BALL', 'BYE', 'LEG_BYE'].map((type) => {
-                            const isActive = pendingExtra === type as ExtraType;
-                            return (
-                                <button
-                                    key={type}
-                                    onClick={() => {
-                                        const next = isActive ? ExtraType.NONE : type as ExtraType;
-                                        setPendingExtra(next);
-                                        if (next === ExtraType.WIDE || next === ExtraType.NO_BALL) {
-                                            setModalView('EXTRA_RUNS');
-                                        }
-                                    }}
-                                    className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all transform active:scale-95 tracking-wide uppercase italic ${isActive ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}
-                                >
-                                    {type.replace('_', ' ')}
-                                </button>
-                            )
-                        })}
-                    </div>
-
-
-                    {/* Keypad */}
-                    <div className="grid grid-cols-7 gap-2 md:gap-3">
-                        {[0, 1, 2, 3].map(run => (
-                            <button key={run} onClick={() => handleScore(run)} className="aspect-square rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xl md:text-2xl shadow-sm border-b-4 border-slate-200 active:border-b-0 active:translate-y-1 transition-all">{run}</button>
-                        ))}
-                        <button onClick={() => handleScore(4)} className="aspect-square rounded-xl bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold text-xl md:text-2xl shadow-sm border-b-4 border-blue-200 active:border-b-0 active:translate-y-1 transition-all">4</button>
-                        <button onClick={() => handleScore(6)} className="aspect-square rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold text-xl md:text-2xl shadow-sm border-b-4 border-purple-200 active:border-b-0 active:translate-y-1 transition-all">6</button>
-                        <button onClick={() => setModalView('WICKET_TYPE')} className="aspect-square rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold text-xl md:text-2xl shadow-md border-b-4 border-red-700 active:border-b-0 active:translate-y-1 transition-all text-center">W</button>
+                    {/* Input Hub */}
+                    <div className="p-2 md:p-3 space-y-2">
+                        {/* Ultra-Large Extras Console */}
+                        <div className="grid grid-cols-4 gap-3 mb-1">
+                            {['WIDE', 'NO_BALL', 'BYE', 'LEG_BYE'].map((type) => {
+                                const isActive = pendingExtra === type as ExtraType;
+                                return (
+                                    <button
+                                        key={type}
+                                        onClick={() => {
+                                            const next = isActive ? ExtraType.NONE : type as ExtraType;
+                                            setPendingExtra(next);
+                                            if (next === ExtraType.WIDE || next === ExtraType.NO_BALL) {
+                                                setModalView('EXTRA_RUNS');
+                                            }
+                                        }}
+                                        className={`py-6 md:py-8 rounded-2xl text-[12px] md:text-sm font-black border transition-all uppercase tracking-tighter leading-none ${isActive ? 'bg-indigo-600 text-white border-indigo-300 shadow-2xl scale-95' : 'bg-slate-900 text-slate-400 border-white/10 hover:border-white/30 hover:text-white'}`}
+                                    >
+                                        {type.replace('_', ' ')}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                        {/* Keypad */}
+                        <div className="grid grid-cols-4 gap-2 md:gap-3">
+                            {[0, 1, 2, 3].map(run => (
+                                <button key={run} onClick={() => handleScore(run)} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-slate-900 border border-white/5 hover:border-white/20 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-inner">{run}</button>
+                            ))}
+                            <button onClick={() => handleScore(4)} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-blue-600/20 border border-blue-400/30">4</button>
+                            <button onClick={() => handleScore(5)} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-emerald-600/20 border border-emerald-400/30">5</button>
+                            <button onClick={() => handleScore(6)} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-purple-600/20 border border-purple-400/30">6</button>
+                            <button onClick={() => setModalView('WICKET_TYPE')} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-red-600/20 border border-red-400/30">W</button>
+                        </div>
                     </div>
                 </div>
             </div>
