@@ -198,7 +198,10 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ currentInnings, previousInnings
                 {activeTab === 'current' && (
                   <div className="mt-8 pt-6 border-t border-white/10 flex flex-col items-center">
                     <button
-                      onClick={onResetMatch}
+                      onClick={() => {
+                        onClose();
+                        onResetMatch();
+                      }}
                       className="py-3 px-8 rounded-full bg-red-900/40 text-red-500 font-black text-xs uppercase tracking-widest border border-red-500/20 active:scale-95 transition-transform hover:bg-red-900/60"
                     >
                       START NEW MATCH
