@@ -335,22 +335,22 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
         setPendingExtra(ExtraType.NONE);
         setPendingWicketInfo(null);
 
-        // Logic for next actions (Modals)
-        setModalView('NONE'); // Close wicket type modal if open
-
-        if (isWicket) {
-            setModalView('BATTER_SELECT');
-        } else if (overCompleted) {
-            // If match not over, select next bowler
-            if (nextInnings.overs < totalOvers) {
-                setModalView('BOWLER_SELECT');
-            }
-        }
-
         // Check Match/Innings End Conditions
         const isAllOut = nextInnings.totalWickets >= 10;
         const isOversDone = nextInnings.overs >= totalOvers;
         const isTargetChased = nextInnings.target && nextInnings.totalRuns >= nextInnings.target;
+        const isMatchEnding = isAllOut || isOversDone || isTargetChased;
+
+        // Logic for next actions (Modals)
+        setModalView('NONE'); // Close wicket type modal if open
+
+        if (!isMatchEnding) {
+            if (isWicket) {
+                setModalView('BATTER_SELECT');
+            } else if (overCompleted) {
+                setModalView('BOWLER_SELECT');
+            }
+        }
 
         // Commentary
         let commentary = generateSimpleCommentary(newBallEvent);
@@ -359,7 +359,7 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
         }
         setLastCommentary(commentary);
 
-        if (isAllOut || (isOversDone && !overCompleted) || isTargetChased) {
+        if (isMatchEnding) {
             // Delay slightly so users see the wicket/run
             setTimeout(() => onInningsEnd(nextInnings), 500);
         }
@@ -542,16 +542,22 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                 <div className="p-6 bg-slate-950 border-b border-white/5 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-1.5 h-6 bg-purple-500 rounded-full"></div>
-                        <h3 className="text-lg font-black uppercase tracking-tighter italic text-white">Next Bowler</h3>
+                        <h3 className="text-lg font-black uppercase tracking-tighter italic text-white">
+                            {innings.allBalls.length === 0 ? "Opening Bowler" : "Next Bowler"}
+                        </h3>
                     </div>
                     <span className="text-2xl">🎾</span>
                 </div>
                 <div className="overflow-y-auto p-4 space-y-3 pb-8 scrollbar-hide flex-1">
-                    <div className="px-2 mb-2">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Previous Bowler</span>
-                        <span className="text-xs font-black text-indigo-400 uppercase italic">{getCurrentBowler()?.name || '---'}</span>
-                    </div>
-                    <div className="h-px bg-white/5 mx-2 my-4"></div>
+                    {innings.allBalls.length > 0 && (
+                        <>
+                            <div className="px-2 mb-2">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Previous Bowler</span>
+                                <span className="text-xs font-black text-indigo-400 uppercase italic">{getCurrentBowler()?.name || '---'}</span>
+                            </div>
+                            <div className="h-px bg-white/5 mx-2 my-4"></div>
+                        </>
+                    )}
                     {innings.bowlingOrder.map(id => {
                         const bowler = innings.bowlers[id];
                         const isCurrent = id === innings.currentBowlerId;
@@ -630,7 +636,7 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
     const equation = getEquation();
 
     return (
-        <div className="h-screen bg-slate-900 text-slate-100 flex flex-col overflow-hidden selection:bg-indigo-500/30">
+        <div className="h-full bg-slate-900 text-slate-100 flex flex-col overflow-hidden selection:bg-indigo-500/30">
             {innings.strikerId === "" && <BatterSelectModal />}
             {/* Modal rendering remains the same... */}
             {innings.strikerId !== "" && innings.nonStrikerId === "" && <BatterSelectModal />}

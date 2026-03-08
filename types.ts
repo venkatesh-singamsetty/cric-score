@@ -1,6 +1,7 @@
 export enum MatchStatus {
   SETUP = 'SETUP',
   LIVE = 'LIVE',
+  INNINGS_BREAK = 'INNINGS_BREAK',
   COMPLETED = 'COMPLETED'
 }
 

@@ -22,7 +22,14 @@ BUCKET_NAME=$(terraform output -raw s3_bucket_name)
 echo "📦 Syncing files to S3 bucket: $BUCKET_NAME..."
 aws s3 sync ../dist/ s3://$BUCKET_NAME/ --delete
 
-# 6. Success message
+# 6. Invalidate CloudFront
+DIST_ID=$(terraform output -raw cloudfront_distribution_id)
+if [ -n "$DIST_ID" ]; then
+    echo "🔄 Invalidating CloudFront cache ($DIST_ID)..."
+    aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*" --no-cli-pager
+fi
+
+# 7. Success message
 WEBSITE_URL=$(terraform output -raw website_url)
 echo "--------------------------------------------------------"
 echo "✅ DEPLOYMENT SUCCESSFUL!"

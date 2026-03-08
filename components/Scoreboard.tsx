@@ -195,19 +195,15 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ currentInnings, previousInnings
                     </div>
                   </div>
                 </div>
-
                 {activeTab === 'current' && (
-                  <button
-                    onClick={() => {
-                      if (confirm("Cancel current match and start fresh? All live progress will be lost.")) {
-                        onResetMatch();
-                      }
-                    }}
-                    className="px-6 py-3 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-[0.1em] border border-red-500/20 transition-all active:scale-95 text-center leading-tight"
-                  >
-                    CANCEL MATCH<br />& START FRESH
-                  </button>
-                )}
+                  <div className="mt-8 pt-6 border-t border-white/10 flex flex-col items-center">
+                    <button
+                      onClick={onResetMatch}
+                      className="py-3 px-8 rounded-full bg-red-900/40 text-red-500 font-black text-xs uppercase tracking-widest border border-red-500/20 active:scale-95 transition-transform hover:bg-red-900/60"
+                    >
+                      START NEW MATCH
+                    </button>
+                  </div>)}
               </div>
             </div>
           </div>

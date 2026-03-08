@@ -32,8 +32,7 @@ const SquadInput = ({
     const handleBlur = () => {
         const cleaned = value.split('\n')
             .map(s => s.trim().toUpperCase())
-            .filter(s => s.length > 0)
-            .sort();
+            .filter(s => s.length > 0);
 
         const newValue = cleaned.join('\n');
         if (newValue !== value.trim()) {
@@ -58,17 +57,24 @@ const SquadInput = ({
     };
 
     return (
-        <div className="flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0">
             <div className="flex justify-between items-center mb-1 shrink-0 px-1">
                 <label className={`text-[10px] font-black uppercase tracking-widest ${accentColor}`}>{label}</label>
                 <div className="flex gap-2 items-center">
+                    <button
+                        type="button"
+                        onClick={() => setValue("")}
+                        className={`text-[9px] font-black px-1.5 py-0.5 bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-400 rounded-full border border-red-500/20 transition-all uppercase`}
+                    >
+                        CLEAR 🗑️
+                    </button>
                     <span className={`text-[9px] font-black px-1.5 py-0.5 bg-white/5 ${accentColor} rounded-full border border-white/5 flex items-center gap-1`}>
                         <span className="animate-pulse">●</span> {lines.filter(s => s.trim().length > 0).length} ROSTER
                     </span>
                 </div>
             </div>
-            {/* Exactly 11 rows: (11 * 28px line-height) + (16px total py-2 padding) = 324px */}
-            <div className="relative h-[324px] flex bg-slate-950 rounded-[1.5rem] border border-white/10 overflow-hidden focus-within:border-indigo-500/50 transition-all shadow-2xl shrink-0">
+            {/* Flexibly scale up to 11 rows (324px) but shrink on small phones */}
+            <div className="relative flex-1 min-h-[150px] max-h-[324px] flex bg-slate-950 rounded-[1.5rem] border border-white/10 overflow-hidden focus-within:border-indigo-500/50 transition-all shadow-2xl shrink-0">
                 <div
                     ref={lineNumbersRef}
                     className="w-10 bg-slate-900/50 border-r border-white/5 flex flex-col items-center pt-2 select-none overflow-hidden shrink-0"
@@ -113,12 +119,12 @@ const MatchSetup: React.FC<MatchSetupProps> = ({ onStartMatch }) => {
 
         const teamA: TeamData = {
             name: teamAName.trim(),
-            players: teamASquad.split('\n').map(s => s.trim()).filter(s => s.length > 0).sort()
+            players: teamASquad.split('\n').map(s => s.trim()).filter(s => s.length > 0)
         };
 
         const teamB: TeamData = {
             name: teamBName.trim(),
-            players: teamBSquad.split('\n').map(s => s.trim()).filter(s => s.length > 0).sort()
+            players: teamBSquad.split('\n').map(s => s.trim()).filter(s => s.length > 0)
         };
 
         const batFirstTeamName = batFirst === 'Team A' ? teamA.name : teamB.name;
@@ -127,7 +133,7 @@ const MatchSetup: React.FC<MatchSetupProps> = ({ onStartMatch }) => {
 
 
     return (
-        <div className="h-screen bg-slate-950 text-slate-100 overflow-hidden flex flex-col selection:bg-indigo-500/30">
+        <div className="h-full bg-slate-950 text-slate-100 overflow-hidden flex flex-col selection:bg-indigo-500/30">
             <div className="max-w-6xl mx-auto flex flex-col h-full w-full p-2 md:p-3 animate-in fade-in zoom-in-95 duration-500">
                 {/* Fixed Header */}
                 <div className="flex justify-center items-center py-1 shrink-0">
@@ -264,7 +270,7 @@ const MatchSetup: React.FC<MatchSetupProps> = ({ onStartMatch }) => {
 
                 {/* Footer Detail */}
                 <div className="text-center py-1 opacity-10 shrink-0">
-                    <p className="text-[8px] font-black uppercase tracking-[0.8em] text-slate-500">CricGenius Hyper-Secure Protocol</p>
+                    <p className="text-[8px] font-black uppercase tracking-[0.8em] text-slate-500">CricScore Hyper-Secure Protocol</p>
                 </div>
             </div>
         </div>

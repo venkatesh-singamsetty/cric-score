@@ -1,6 +1,6 @@
-# 🏏 CricGenius Scorer - Feature Documentation
+# 🏏 CricScore - Feature Documentation
 
-CricGenius Scorer is a high-performance, mobile-first cricket scoring application designed for precision and ease of use. Below is a comprehensive list of all technical and functional features integrated into the current system.
+CricScore is a high-performance, mobile-first cricket scoring application designed for precision and ease of use. Below is a comprehensive list of all technical and functional features integrated into the current system.
 
 ## 🚀 Core Scoring Capabilities
 - **Real-time Innings Tracking**: Dynamic management of runs, wickets, and overs with instantaneous UI updates.
@@ -15,8 +15,8 @@ CricGenius Scorer is a high-performance, mobile-first cricket scoring applicatio
 - **Advanced Maiden Logic**: Maiden overs are calculated based on runs off the bat only. Extras (Wides, No Balls, Byes, Leg-Byes) do not prevent a maiden, ensuring statistical accuracy.
 - **Precision Roster Setup**:
     - **11-Row Focus View**: The squad input area is calibrated to show exactly 11 players at a time, providing a clear visual confirmation of a full team.
-    - **Smart-Sorting on Blur**: Squad lists are automatically cleaned, deduplicated, and alphabetized whenever you stop typing, keeping the pre-match setup professional and organized.
-    - **Cursor-Skip Protection**: Advanced input logic prevents annoying cursor jumps during name entry, allowing for rapid and accurate roster builds.
+    - **Free-Form Control**: Squad lists perfectly respect manual spacing and ordering while auto-cleaning whitespace, allowing you to copy-paste exact batting orders directly in.
+    - **One-Click Clear**: Clear button to instantly reset your roster for a brand new lineup.
 
 - **Live-Management Cockpit**: 
     - **Mid-Match Renaming**: Instantly fix typos in team names or active player names (Batter/Bowler) by clicking directly on the name in the header or cockpit.
@@ -33,7 +33,8 @@ CricGenius Scorer is a high-performance, mobile-first cricket scoring applicatio
     - **Run Rate Analytics**: Real-time display of Current Run Rate (CRR) and Required Run Rate (RRR).
     - **Target Chase Equation**: Dynamic display of "Runs needed in XX balls" during the second innings.
 - **Full Digital Scorecard**: A comprehensive modal displaying detailed batting stats (4s, 6s, SR) and bowling figures (O, M, R, W, Econ).
-- **UI Safety & Security**: The **'Match Cancel'** reset functionality is securely tucked inside the Scoreboard modal to prevent accidental data loss during intense scoring.
+- **Match Conclusion Screen**: Features a dramatic win/tie state screen with a 1-click **Email Result** feature that compiles an ASCII broadcast scorecard of *both* innings to any custom email directly from your phone.
+- **Top-Bar Reset Security**: Ensure that the "Start New Match" functionality is always globally accessible but gated behind a custom modal to entirely prevent accidental resets.
 
 ## ⚙️ Match Intelligence
 - **Configurable Match Length**: Defaulted to **15 overs**, but fully adjustable during setup (1-50 overs).

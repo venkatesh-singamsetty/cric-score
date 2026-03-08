@@ -1,6 +1,6 @@
-# 🏏 CricGenius Scorer
+# 🏏 CricScore
 
-CricGenius Scorer is a modern, high-performance cricket scoring application designed for real-time match tracking. Built with **React 19**, **Vite**, and **Tailwind CSS**.
+CricScore is a modern, high-performance cricket scoring application designed for real-time match tracking. Built with **React 19**, **Vite**, and **Tailwind CSS**.
 
 ---
 
@@ -105,10 +105,11 @@ chmod +x deploy.sh
 
 ## 💡 Key Features
 - **Zero-Scroll Ergonomics**: Optimized viewport that fits the entire scoring dashboard on a single screen—no vertical scrolling required.
-- **Match State Persistence**: Refresh safely; your entire match state is automatically saved to `localStorage`.
+- **Match State Persistence**: Refresh safely; your entire match state is automatically saved to `localStorage` allowing multiple umpires to score different matches parallelly in their own browsers.
 - **Live-Management Cockpit**: Fix typos mid-match by clicking player/team names, or dynamically expand your squad on the fly.
-- **Precision Setup**: 11-row calibrated squad input with smart auto-sorting and cursor-jump protection.
-- **Safety-First Resets**: The **"Match Cancel"** functionality is securely located within the **Scoreboard** modal to prevent accidental data loss.
+- **Precision Setup**: Free-form text area roster setup allowing you to paste in your exact batting order instantly.
+- **Shareable Match Results**: Instantly generate and email a broadcast-style ASCII scorecard to anyone with a single click at the end of a match.
+- **Global Reset Protection**: Safely abandon a fixture and start a new match from anywhere in the app, protected by a custom confirmation modal to prevent accidental data loss.
 - **Multi-Level Undo**: Easily reverse any scoring error with deep state history tracking.
 
 > [!TIP]
