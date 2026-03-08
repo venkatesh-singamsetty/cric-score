@@ -73,8 +73,8 @@ const SquadInput = ({
                     </span>
                 </div>
             </div>
-            {/* Flexibly scale up to 11 rows (324px) but shrink on small phones */}
-            <div className="relative flex-1 min-h-[150px] max-h-[324px] flex bg-slate-950 rounded-[1.5rem] border border-white/10 overflow-hidden focus-within:border-indigo-500/50 transition-all shadow-2xl shrink-0">
+            {/* Flexibly scale up to 12 rows (350px) but shrink on small phones */}
+            <div className="relative flex-1 min-h-[150px] max-h-[350px] flex bg-slate-950 rounded-[1.5rem] border border-white/10 overflow-hidden focus-within:border-indigo-500/50 transition-all shadow-2xl shrink-0">
                 <div
                     ref={lineNumbersRef}
                     className="w-10 bg-slate-900/50 border-r border-white/5 flex flex-col items-center pt-2 select-none overflow-hidden shrink-0"
@@ -89,7 +89,7 @@ const SquadInput = ({
                     ref={textareaRef}
                     onBlur={handleBlur}
                     onScroll={() => textareaRef.current && lineNumbersRef.current && handleScroll(textareaRef.current, lineNumbersRef.current)}
-                    className="flex-1 bg-transparent px-4 py-2 text-sm font-black text-slate-300 outline-none resize-none scrollbar-hide uppercase leading-[28px] overflow-y-auto"
+                    className="flex-1 bg-transparent px-4 pt-2 pb-8 text-sm font-black text-slate-300 outline-none resize-none scrollbar-hide uppercase leading-[28px] overflow-y-auto"
                     value={value}
                     onChange={handleChange}
                     placeholder="Enter player name..."

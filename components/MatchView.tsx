@@ -840,11 +840,11 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                         {/* Keypad */}
                         <div className="grid grid-cols-7 gap-1.5 md:gap-2">
                             {[0, 1, 2, 3].map(run => (
-                                <button key={run} onClick={() => handleScore(run)} className="aspect-square rounded-xl md:rounded-2xl bg-slate-900 border border-white/5 hover:border-white/20 text-white font-black text-lg md:text-xl active:scale-95 transition-all shadow-inner">{run}</button>
+                                <button key={run} onClick={() => handleScore(run)} className="h-14 sm:h-16 rounded-xl md:rounded-2xl bg-slate-900 border border-white/5 hover:border-white/20 text-white font-black text-xl md:text-2xl active:scale-95 transition-all shadow-inner">{run}</button>
                             ))}
-                            <button onClick={() => handleScore(4)} className="aspect-square rounded-xl md:rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xl md:text-2xl active:scale-95 transition-all shadow-xl shadow-blue-600/20 border border-blue-400/30">4</button>
-                            <button onClick={() => handleScore(6)} className="aspect-square rounded-xl md:rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xl md:text-2xl active:scale-95 transition-all shadow-xl shadow-purple-600/20 border border-purple-400/30">6</button>
-                            <button onClick={() => setModalView('WICKET_TYPE')} className="aspect-square rounded-xl md:rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-xl md:text-2xl active:scale-95 transition-all shadow-xl shadow-red-600/20 border border-red-400/30">W</button>
+                            <button onClick={() => handleScore(4)} className="h-14 sm:h-16 rounded-xl md:rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-blue-600/20 border border-blue-400/30">4</button>
+                            <button onClick={() => handleScore(6)} className="h-14 sm:h-16 rounded-xl md:rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-purple-600/20 border border-purple-400/30">6</button>
+                            <button onClick={() => setModalView('WICKET_TYPE')} className="h-14 sm:h-16 rounded-xl md:rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-red-600/20 border border-red-400/30">W</button>
                         </div>
                     </div>
                 </div>
