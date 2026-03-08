@@ -27,7 +27,8 @@ CricScore is a high-performance, mobile-first cricket scoring application design
 
 - **Ergonomic Single-Page Viewport**:
     - **Zero-Scroll Mandate**: The entire scoring interface (Scoreboard, Commentary, Cockpit, and Keypad) fits perfectly within a single screen, eliminating vertical scrolling and keeping all critical actions at your fingertips.
-    - **High-Density Layout**: Optimized spacing and tactile button scaling provide a professional broadcast aesthetic while maximizing operational speed.
+    - **Fluid Cross-Device Scaling**: Employs responsive breakpoints and dynamic padding to prevent flex-container cutoff bugs on wide but short laptop screens while maximizing size on tall mobile devices.
+    - **High-Density 2-Row Keypad**: An optimized 4x2 interactive keypad with massive, thumb-friendly tap targets incorporating [0-6] and [W], providing a professional broadcast aesthetic while maximizing operational speed.
     - **Safe Area Support**: Bottom controls respect modern smartphone navigation zones and feature minimized whitespace for better density.
 - **Integrated Match Intelligence**:
     - **Run Rate Analytics**: Real-time display of Current Run Rate (CRR) and Required Run Rate (RRR).
@@ -45,4 +46,5 @@ CricScore is a high-performance, mobile-first cricket scoring application design
 - **Framework**: Built with **React 19** and **TypeScript** for Type-safety.
 - **Styling**: **Tailwind CSS** (via CDN) for high-performance, utility-first styling.
 - **Persistence**: Match state is automatically mirrored to `localStorage`, allowing for safe page refreshes without data loss.
+- **Zero-Asset SVG Favicon**: Automatically renders a high-definition 🏏 emoji icon natively in browser tabs without requiring heavy graphical `.ico` or `.png` asset loading.
 - **No-Database Lightweight**: Runs entirely in the client-side browser, making it incredibly fast and deployment-ready via simple static hosting.

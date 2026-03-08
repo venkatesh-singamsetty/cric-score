@@ -621,8 +621,8 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                             key={r}
                             onClick={() => handleScore(r)}
                             className={`py-5 sm:py-6 rounded-2xl font-black text-2xl sm:text-3xl transition-all active:scale-95 shadow-xl border-t border-white/10 ${r === 4 ? 'bg-blue-600 text-white shadow-blue-600/20' :
-                                    r === 5 ? 'bg-emerald-600 text-white shadow-emerald-600/20' :
-                                        'bg-purple-600 text-white shadow-purple-600/20'
+                                r === 5 ? 'bg-emerald-600 text-white shadow-emerald-600/20' :
+                                    'bg-purple-600 text-white shadow-purple-600/20'
                                 }`}
                         >
                             {r}
@@ -703,8 +703,8 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
             </div>
 
             {/* Main Live Dashboard Area (Centered and Tight) */}
-            <div className="flex-1 overflow-y-auto scrollbar-hide flex flex-col justify-center py-1">
-                <div className="max-w-4xl mx-auto w-full px-4 space-y-2 pb-2">
+            <div className="flex-1 overflow-y-auto scrollbar-hide flex flex-col py-1">
+                <div className="max-w-4xl mx-auto w-full px-4 space-y-2 pb-2 my-auto">
                     {/* Active Player Cards */}
                     <div className="grid grid-cols-2 gap-3">
                         {/* Batters */}
@@ -805,19 +805,19 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                 <div className="max-w-4xl mx-auto">
                     {/* Action Tabs */}
                     <div className="grid grid-cols-4 border-b border-white/5">
-                        <button onClick={handleUndo} disabled={history.length === 0} className="py-2.5 md:py-4 flex flex-col items-center justify-center gap-1 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all border-r border-white/5 disabled:opacity-10">
+                        <button onClick={handleUndo} disabled={history.length === 0} className="py-2 flex flex-col items-center justify-center gap-1 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all border-r border-white/5 disabled:opacity-10">
                             <span className="text-base text-indigo-400">↺</span>
                             Undo
                         </button>
-                        <button onClick={() => setModalView('BOWLER_SELECT')} className="py-2.5 md:py-4 flex flex-col items-center justify-center gap-1 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all border-r border-white/5">
+                        <button onClick={() => setModalView('BOWLER_SELECT')} className="py-2 flex flex-col items-center justify-center gap-1 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all border-r border-white/5">
                             <span className="text-base">🎾</span>
                             Change Bowler
                         </button>
-                        <button onClick={() => setModalView('BATTER_SELECT')} className="py-2.5 md:py-4 flex flex-col items-center justify-center gap-1 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all border-r border-white/5">
+                        <button onClick={() => setModalView('BATTER_SELECT')} className="py-2 flex flex-col items-center justify-center gap-1 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all border-r border-white/5">
                             <span className="text-base">🏏</span>
                             Change Batter
                         </button>
-                        <button onClick={() => handleRetire(WicketType.RETIRED_HURT)} className="py-2.5 md:py-4 flex flex-col items-center justify-center gap-1 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all">
+                        <button onClick={() => handleRetire(WicketType.RETIRED_HURT)} className="py-2 flex flex-col items-center justify-center gap-1 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all">
                             <span className="text-base">🤕</span>
                             Hurt
                         </button>
@@ -826,7 +826,7 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                     {/* Input Hub */}
                     <div className="p-2 md:p-3 space-y-2">
                         {/* Ultra-Large Extras Console */}
-                        <div className="grid grid-cols-4 gap-3 mb-1">
+                        <div className="grid grid-cols-4 gap-2 md:gap-3 mb-1">
                             {['WIDE', 'NO_BALL', 'BYE', 'LEG_BYE'].map((type) => {
                                 const isActive = pendingExtra === type as ExtraType;
                                 return (
@@ -839,7 +839,7 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                                                 setModalView('EXTRA_RUNS');
                                             }
                                         }}
-                                        className={`py-6 md:py-8 rounded-2xl text-[12px] md:text-sm font-black border transition-all uppercase tracking-tighter leading-none ${isActive ? 'bg-indigo-600 text-white border-indigo-300 shadow-2xl scale-95' : 'bg-slate-900 text-slate-400 border-white/10 hover:border-white/30 hover:text-white'}`}
+                                        className={`py-3 md:py-4 lg:py-5 rounded-2xl md:rounded-xl text-[10px] md:text-xs font-black border transition-all uppercase tracking-tighter leading-none ${isActive ? 'bg-indigo-600 text-white border-indigo-300 shadow-2xl scale-95' : 'bg-slate-900 text-slate-400 border-white/10 hover:border-white/30 hover:text-white'}`}
                                     >
                                         {type.replace('_', ' ')}
                                     </button>
@@ -849,12 +849,12 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                         {/* Keypad */}
                         <div className="grid grid-cols-4 gap-2 md:gap-3">
                             {[0, 1, 2, 3].map(run => (
-                                <button key={run} onClick={() => handleScore(run)} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-slate-900 border border-white/5 hover:border-white/20 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-inner">{run}</button>
+                                <button key={run} onClick={() => handleScore(run)} className="h-12 sm:h-14 lg:h-16 rounded-xl md:rounded-lg bg-slate-900 border border-white/5 hover:border-white/20 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-inner">{run}</button>
                             ))}
-                            <button onClick={() => handleScore(4)} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-blue-600/20 border border-blue-400/30">4</button>
-                            <button onClick={() => handleScore(5)} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-emerald-600/20 border border-emerald-400/30">5</button>
-                            <button onClick={() => handleScore(6)} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-purple-600/20 border border-purple-400/30">6</button>
-                            <button onClick={() => setModalView('WICKET_TYPE')} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-red-600/20 border border-red-400/30">W</button>
+                            <button onClick={() => handleScore(4)} className="h-12 sm:h-14 lg:h-16 rounded-xl md:rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-blue-600/20 border border-blue-400/30">4</button>
+                            <button onClick={() => handleScore(5)} className="h-12 sm:h-14 lg:h-16 rounded-xl md:rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-emerald-600/20 border border-emerald-400/30">5</button>
+                            <button onClick={() => handleScore(6)} className="h-12 sm:h-14 lg:h-16 rounded-xl md:rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-purple-600/20 border border-purple-400/30">6</button>
+                            <button onClick={() => setModalView('WICKET_TYPE')} className="h-12 sm:h-14 lg:h-16 rounded-xl md:rounded-lg bg-red-600 hover:bg-red-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-red-600/20 border border-red-400/30">W</button>
                         </div>
                     </div>
                 </div>

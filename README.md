@@ -105,6 +105,9 @@ chmod +x deploy.sh
 
 ## 💡 Key Features
 - **Zero-Scroll Ergonomics**: Optimized viewport that fits the entire scoring dashboard on a single screen—no vertical scrolling required.
+- **Fluid Cross-Device Scaling**: Responsive flex-containers prevent UI clipping across all devices, seamlessly fitting ultra-wide laptops to tall phones.
+- **High-Density 2-Row Keypad**: An optimized 4x2 interactive keypad with massive, thumb-friendly tap targets incorporating [0-6] and [W].
+- **Zero-Asset SVG Favicon**: Built-in 🏏 emoji favicon renders natively in all browser tabs without needing heavy graphical asset requests.
 - **Match State Persistence**: Refresh safely; your entire match state is automatically saved to `localStorage` allowing multiple umpires to score different matches parallelly in their own browsers.
 - **Live-Management Cockpit**: Fix typos mid-match by clicking player/team names, or dynamically expand your squad on the fly.
 - **Precision Setup**: Free-form text area roster setup allowing you to paste in your exact batting order instantly.
