@@ -1,75 +1,137 @@
 # 🏏 CricGenius Scorer
 
-A modern, high-performance cricket scoring application designed for real-time match tracking. Built with **React 19**, **Vite**, and **Tailwind CSS**.
+CricGenius Scorer is a modern, high-performance cricket scoring application designed for real-time match tracking. Built with **React 19**, **Vite**, and **Tailwind CSS**.
 
 ---
 
-## 📋 Prerequisites
+## 🏛️ Architecture
 
-Before you begin, ensure you have the following installed on your system:
+The application uses a serverless, highly available, and cost-optimized architecture on AWS:
 
-- **Node.js**: `v24.12.0` (Recommended) or `v18.0.0+`
-- **npm**: `v11.6.2` (Recommended) or `v9.0.0+`
+```mermaid
+graph TD
+    User([📱 User Mobile/Chrome]) -->|HTTPS| R53(Route 53 DNS)
+    R53 -->|Alias| CF(CloudFront CDN)
+    CF --- ACM(ACM SSL Certificate)
+    CF -->|Origin Access Control| S3(S3 Static Bucket)
+    
+    subgraph "Infrastructure Management"
+        TF(Terraform) -->|Provisions| R53
+        TF -->|Provisions| CF
+        TF -->|Provisions| S3
+        TF -->|Provisions| ACM
+        TF -.->|State Storage| S3Backend(Backend S3 Bucket)
+        TF -.->|Locking| DDB(DynamoDB Table)
+    end
+    
+    subgraph "CI/CD Pipeline"
+        DeployScript(deploy.sh) -->|Builds| Build(npm run build)
+        Build -->|Syncs| S3
+    end
+```
+
+---
+
+## 🏁 Getting Started (Zero to Hero)
+
+Follow these steps to set up the app on a **brand new** laptop (Mac, Windows, or Linux).
+
+### 1. Install Prerequisites
+You need the following tools installed and available in your terminal:
+- **Git**: [Download Git](https://git-scm.com/downloads)
+- **Node.js (v18+)**: [Download Node.js](https://nodejs.org/)
+- **Terraform (v1.0+)**: [Download Terraform](https://developer.hashicorp.com/terraform/downloads)
+- **AWS CLI (v2.0+)**: [Download AWS CLI](https://aws.amazon.com/cli/)
+
+### 2. Verify Your Environment
+Clone the repository and run the automated check script:
+
+```bash
+# Clone the repo
+git clone https://github.com/yourusername/cric-score.git
+cd cric-score
+
+# Mac / Linux
+chmod +x scripts/setup.sh && ./scripts/setup.sh
+
+# Windows (PowerShell)
+.\scripts\setup.ps1
+```
+
+---
+
+## 🚀 Setup & Deployment
+
+### Step 1: AWS Configuration
+Open your terminal and run the following to link your AWS account:
+```bash
+aws configure
+```
+Enter your `AWS Access Key ID`, `Secret Access Key`, and preferred region (e.g., `us-east-1`).
+
+### Step 2: Infrastructure Configuration
+Navigate to the `terraform/` directory and update `terraform.tfvars`:
+
+```hcl
+# Important: Ensure these resources exist in your AWS account first
+zone_domain      = "yourdomain.com"      # Your Route53 Hosted Zone
+domain_name      = "score.yourdomain.com" # The final URL you want
+subdomain_prefix = "score"                # Subdomain only
+
+# Remote State (Recommended for teams)
+backend_bucket         = "your-state-bucket"
+backend_dynamodb_table = "your-lock-table"
+```
+
+### Step 3: Deployment & Updates
+The **easiest** way is to use the unified script from the **project root**:
+```bash
+# MUST be run from the root directory
+chmod +x deploy.sh
+./deploy.sh
+```
+
+> [!NOTE]
+> If you choose to run commands manually, **Terraform commands must be executed within the `terraform/` folder**, while **npm commands must be run from the root**.
+
+**What this script does:**
+1.  **Builds** the React production bundle (`dist/`).
+2.  **Initializes** Terraform and syncs your remote state.
+3.  **Provisions** all AWS resources (S3, CloudFront, Route53).
+4.  **Syncs** your built files to the S3 bucket.
+5.  **Invalidates** the CloudFront cache to go live instantly.
+
+---
+
+## 💡 Key Features
+- **Zero-Scroll Ergonomics**: Optimized viewport that fits the entire scoring dashboard on a single screen—no vertical scrolling required.
+- **Match State Persistence**: Refresh safely; your entire match state is automatically saved to `localStorage`.
+- **Live-Management Cockpit**: Fix typos mid-match by clicking player/team names, or dynamically expand your squad on the fly.
+- **Precision Setup**: 11-row calibrated squad input with smart auto-sorting and cursor-jump protection.
+- **Safety-First Resets**: The **"Match Cancel"** functionality is securely located within the **Scoreboard** modal to prevent accidental data loss.
+- **Multi-Level Undo**: Easily reverse any scoring error with deep state history tracking.
 
 > [!TIP]
-> You can check your versions by running `node -v` and `npm -v` in your terminal.
+> For a complete deep-dive into every technical and functional capability, check out our **[Full Feature Documentation](features.md)**.
 
 ---
 
-## 🚀 Quick/Fast Start (One-Step Run)
-
-Copy and paste this command into your terminal to **install dependencies and start the app** immediately:
-
-```bash
-npm install && npm run dev
-```
-
-- **Visit in Browser:** [http://localhost:3000](http://localhost:3000)
-
----
-
-## 🏗️ Step-by-Step Production Workflow
-
-If you want to build the final production-ready app:
-
-### 1. Download Dependencies
-```bash
-npm install
-```
-
-### 2. Build the Application
-```bash
-npm run build
-```
-
-### 3. Run and Preview
-```bash
-npm run preview
-```
-
-The production version will be available at **[http://localhost:4173](http://localhost:4173)**.
-
----
-
-## ☁️ Deployment Guide (AWS)
-
-### Option 1: AWS Amplify (Easiest)
-1. Connect your **GitHub** repository to **AWS Amplify Console**.
-2. Amplify will auto-detect the Vite settings.
-3. Click "Deploy". It will automatically manage the build and hosting.
-
-### Option 2: S3 + CloudFront (Static)
-1. Run `npm run build`.
-2. Upload everything from the `dist/` directory to an **S3 Bucket** configured for static web hosting.
-3. (Optional) Set up **CloudFront** to serve the content via HTTPS.
-
----
-
-## 🛠️ Tech Stack & Credits
-
-- **Frontend**: React 19
+## 🛠️ Tech Stack
+- **Frontend**: React 19, Vite 6, TypeScript
 - **Styling**: Tailwind CSS
-- **Charts**: Recharts
-- **Bundler**: Vite 6
+- **Infrastructure**: Terraform, AWS (S3, CloudFront, Route53, ACM)
+- **Testing**: Vitest
 
-Developed with ❤️ using Antigravity.
+---
+
+## 🤝 Contributing
+1. Fork the repo.
+2. Create your feature branch (`git checkout -b feature/amazing-feature`).
+3. Commit your changes (`git commit -m 'Add amazing feature'`).
+4. Push to the branch (`git push origin feature/amazing-feature`).
+5. Open a Pull Request.
+
+---
+
+## 📄 License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

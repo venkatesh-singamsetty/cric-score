@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { InningsState, MatchStatus, TeamData, Player, Bowler } from './types';
 import MatchSetup from './components/MatchSetup';
 import MatchView from './components/MatchView';
@@ -11,7 +11,41 @@ const App: React.FC = () => {
     // Match Config
     const [teamA, setTeamA] = useState<TeamData | null>(null);
     const [teamB, setTeamB] = useState<TeamData | null>(null);
-    const [totalOvers, setTotalOvers] = useState(0);
+    const [totalOvers, setTotalOvers] = useState(15);
+
+    // --- Persistence Logic ---
+    useEffect(() => {
+        const saved = localStorage.getItem('cric-scorer-match-state');
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                setMatchStatus(data.matchStatus);
+                setTeamA(data.teamA);
+                setTeamB(data.teamB);
+                setTotalOvers(data.totalOvers);
+                setPreviousInnings(data.previousInnings);
+
+                // If there's a live innings saved, MatchView will handle its own internal resume
+                if (data.currentInnings) {
+                    setCurrentInnings(data.currentInnings);
+                }
+            } catch (e) {
+                console.error("Failed to restore state", e);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        const stateToSave = {
+            matchStatus,
+            teamA,
+            teamB,
+            totalOvers,
+            previousInnings,
+            currentInnings
+        };
+        localStorage.setItem('cric-scorer-match-state', JSON.stringify(stateToSave));
+    }, [matchStatus, teamA, teamB, totalOvers, previousInnings, currentInnings]);
 
     // Helper to create an innings
     const createInnings = (
@@ -65,9 +99,9 @@ const App: React.FC = () => {
             balls: 0,
             currentOver: [],
             allBalls: [],
-            strikerId: battingOrder[0],
-            nonStrikerId: battingOrder[1],
-            currentBowlerId: bowlingOrder[0],
+            strikerId: '',
+            nonStrikerId: '',
+            currentBowlerId: '',
             players: playersMap,
             bowlers: bowlersMap,
             battingOrder,
@@ -115,6 +149,8 @@ const App: React.FC = () => {
         setMatchStatus(MatchStatus.SETUP);
         setCurrentInnings(null);
         setPreviousInnings(undefined);
+        localStorage.removeItem('cric-scorer-match-state');
+        localStorage.removeItem('cric-scorer-live-innings');
     }
 
     const getWinnerMessage = () => {
@@ -142,34 +178,79 @@ const App: React.FC = () => {
                     previousInnings={previousInnings}
                     totalOvers={totalOvers}
                     onInningsEnd={handleInningsEnd}
+                    onResetMatch={resetMatch}
                 />
             )}
 
             {matchStatus === MatchStatus.COMPLETED && currentInnings && (
-                <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900">
-                    <div className="bg-white p-10 rounded-3xl shadow-2xl text-center max-w-lg w-full relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
-                        <div className="text-7xl mb-6">🏆</div>
-                        <h1 className="text-4xl font-black text-slate-900 mb-2 uppercase tracking-tight italic">Match Ended</h1>
-                        <p className="text-2xl font-medium text-blue-600 mb-8">{getWinnerMessage()}</p>
+                <div className="min-h-screen flex items-center justify-center p-4 bg-slate-950 selection:bg-indigo-500/30">
+                    <div className="relative w-full max-w-2xl animate-in zoom-in-95 duration-500">
+                        {/* Dramatic Glow Background */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-indigo-600/10 blur-[120px] rounded-full -z-10"></div>
 
-                        <div className="bg-slate-50 rounded-xl p-4 mb-8">
-                            <div className="flex justify-between items-center mb-2 text-slate-600 uppercase font-bold text-xs">
-                                <span>{previousInnings?.battingTeamName}</span>
-                                <span className="font-bold">{previousInnings?.totalRuns}/{previousInnings?.totalWickets}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-slate-800 font-bold text-lg uppercase italic mt-2">
-                                <span>{currentInnings.battingTeamName}</span>
-                                <span>{currentInnings.totalRuns}/{currentInnings.totalWickets}</span>
+                        <div className="bg-slate-900 border border-white/5 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+                            {/* Accent Header */}
+                            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600"></div>
+
+                            <div className="text-center space-y-8">
+                                <div className="space-y-2">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-4">
+                                        <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-500">Official Result</span>
+                                    </div>
+                                    <div className="text-8xl animate-bounce">🏆</div>
+                                    <h1 className="text-6xl font-black text-white uppercase tracking-tighter italic leading-none">
+                                        Match<br />Concluded
+                                    </h1>
+                                </div>
+
+                                <div className="bg-indigo-600/10 border border-indigo-500/20 rounded-3xl p-8 transform hover:scale-[1.02] transition-transform">
+                                    <p className="text-4xl font-black text-indigo-400 uppercase tracking-tight italic drop-shadow-2xl">
+                                        {getWinnerMessage()}
+                                    </p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <label className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500">Final Scorecards</label>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {/* First Innings Summary */}
+                                        <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-5 flex justify-between items-center group hover:bg-slate-800 transition-colors">
+                                            <div className="text-left">
+                                                <span className="text-[10px] font-black text-slate-500 block mb-1 uppercase tracking-widest">Innings 1</span>
+                                                <span className="text-xl font-black text-slate-300 uppercase tracking-tight italic">{previousInnings?.battingTeamName}</span>
+                                            </div>
+                                            <div className="text-4xl font-black text-white tabular-nums">
+                                                {previousInnings?.totalRuns}<span className="text-slate-600 mx-1 text-2xl">/</span>{previousInnings?.totalWickets}
+                                            </div>
+                                        </div>
+
+                                        {/* Second Innings Summary */}
+                                        <div className="bg-indigo-600 border border-indigo-400 rounded-2xl p-5 flex justify-between items-center shadow-xl shadow-indigo-600/20">
+                                            <div className="text-left">
+                                                <span className="text-[10px] font-black text-indigo-100 block mb-1 uppercase tracking-widest">Innings 2</span>
+                                                <span className="text-xl font-black text-white uppercase tracking-tight italic">{currentInnings.battingTeamName}</span>
+                                            </div>
+                                            <div className="text-4xl font-black text-white tabular-nums">
+                                                {currentInnings.totalRuns}<span className="text-indigo-300 mx-1 text-2xl">/</span>{currentInnings.totalWickets}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={resetMatch}
+                                    className="w-full h-20 bg-white text-slate-900 rounded-[1.5rem] font-black text-xl uppercase tracking-widest italic hover:bg-slate-100 active:scale-[0.98] transition-all shadow-2xl flex items-center justify-center gap-3 mt-12"
+                                >
+                                    START FRESH MATCH
+                                    <span className="text-2xl">⚡</span>
+                                </button>
                             </div>
                         </div>
 
-                        <button
-                            onClick={resetMatch}
-                            className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl uppercase tracking-widest italic"
-                        >
-                            Start New Match
-                        </button>
+                        {/* Footer Detail */}
+                        <p className="mt-8 text-[10px] font-black text-slate-600 uppercase tracking-[0.5em] text-center italic opacity-50">
+                            CricGenius Record Log #77291-LIVE
+                        </p>
                     </div>
                 </div>
             )}
