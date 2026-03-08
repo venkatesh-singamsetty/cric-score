@@ -849,12 +849,12 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                         {/* Keypad */}
                         <div className="grid grid-cols-4 gap-2 md:gap-3">
                             {[0, 1, 2, 3].map(run => (
-                                <button key={run} onClick={() => handleScore(run)} className="h-12 sm:h-14 lg:h-16 rounded-xl md:rounded-lg bg-slate-900 border border-white/5 hover:border-white/20 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-inner">{run}</button>
+                                <button key={run} onClick={() => handleScore(run)} className="h-14 sm:h-16 lg:h-20 rounded-xl md:rounded-lg bg-slate-900 border border-white/5 hover:border-white/20 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-inner">{run}</button>
                             ))}
-                            <button onClick={() => handleScore(4)} className="h-12 sm:h-14 lg:h-16 rounded-xl md:rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-blue-600/20 border border-blue-400/30">4</button>
-                            <button onClick={() => handleScore(5)} className="h-12 sm:h-14 lg:h-16 rounded-xl md:rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-emerald-600/20 border border-emerald-400/30">5</button>
-                            <button onClick={() => handleScore(6)} className="h-12 sm:h-14 lg:h-16 rounded-xl md:rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-purple-600/20 border border-purple-400/30">6</button>
-                            <button onClick={() => setModalView('WICKET_TYPE')} className="h-12 sm:h-14 lg:h-16 rounded-xl md:rounded-lg bg-red-600 hover:bg-red-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-red-600/20 border border-red-400/30">W</button>
+                            <button onClick={() => handleScore(4)} className="h-14 sm:h-16 lg:h-20 rounded-xl md:rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-blue-600/20 border border-blue-400/30">4</button>
+                            <button onClick={() => handleScore(5)} className="h-14 sm:h-16 lg:h-20 rounded-xl md:rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-emerald-600/20 border border-emerald-400/30">5</button>
+                            <button onClick={() => handleScore(6)} className="h-14 sm:h-16 lg:h-20 rounded-xl md:rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-purple-600/20 border border-purple-400/30">6</button>
+                            <button onClick={() => setModalView('WICKET_TYPE')} className="h-14 sm:h-16 lg:h-20 rounded-xl md:rounded-lg bg-red-600 hover:bg-red-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-red-600/20 border border-red-400/30">W</button>
                         </div>
                     </div>
                 </div>
