@@ -606,14 +606,23 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                 </div>
                 <h3 className="text-2xl font-black text-white uppercase tracking-tighter italic mb-2">Additional Runs?</h3>
                 <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-8">Select any runs conceded from this delivery</p>
-                <div className="grid grid-cols-3 gap-3">
-                    {[0, 1, 2, 3, 4, 6].map(r => (
+                <div className="grid grid-cols-4 gap-2 md:gap-3">
+                    {[0, 1, 2, 3].map(r => (
                         <button
                             key={r}
                             onClick={() => handleScore(r)}
-                            className={`py-6 rounded-2xl font-black text-2xl transition-all active:scale-95 shadow-xl border-t border-white/10 ${r === 4 ? 'bg-blue-600 text-white shadow-blue-600/20' :
-                                r === 6 ? 'bg-purple-600 text-white shadow-purple-600/20' :
-                                    'bg-white/5 text-slate-200 hover:bg-white/10'
+                            className="py-5 sm:py-6 rounded-2xl font-black text-2xl sm:text-3xl transition-all active:scale-95 shadow-xl border-t border-white/10 bg-slate-900 text-white hover:bg-slate-800"
+                        >
+                            {r}
+                        </button>
+                    ))}
+                    {[4, 5, 6].map(r => (
+                        <button
+                            key={r}
+                            onClick={() => handleScore(r)}
+                            className={`py-5 sm:py-6 rounded-2xl font-black text-2xl sm:text-3xl transition-all active:scale-95 shadow-xl border-t border-white/10 ${r === 4 ? 'bg-blue-600 text-white shadow-blue-600/20' :
+                                    r === 5 ? 'bg-emerald-600 text-white shadow-emerald-600/20' :
+                                        'bg-purple-600 text-white shadow-purple-600/20'
                                 }`}
                         >
                             {r}
@@ -838,13 +847,14 @@ const MatchView: React.FC<MatchViewProps> = ({ initialState, previousInnings, to
                             })}
                         </div>
                         {/* Keypad */}
-                        <div className="grid grid-cols-7 gap-1.5 md:gap-2">
+                        <div className="grid grid-cols-4 gap-2 md:gap-3">
                             {[0, 1, 2, 3].map(run => (
-                                <button key={run} onClick={() => handleScore(run)} className="h-14 sm:h-16 rounded-xl md:rounded-2xl bg-slate-900 border border-white/5 hover:border-white/20 text-white font-black text-xl md:text-2xl active:scale-95 transition-all shadow-inner">{run}</button>
+                                <button key={run} onClick={() => handleScore(run)} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-slate-900 border border-white/5 hover:border-white/20 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-inner">{run}</button>
                             ))}
-                            <button onClick={() => handleScore(4)} className="h-14 sm:h-16 rounded-xl md:rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-blue-600/20 border border-blue-400/30">4</button>
-                            <button onClick={() => handleScore(6)} className="h-14 sm:h-16 rounded-xl md:rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-purple-600/20 border border-purple-400/30">6</button>
-                            <button onClick={() => setModalView('WICKET_TYPE')} className="h-14 sm:h-16 rounded-xl md:rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-2xl md:text-3xl active:scale-95 transition-all shadow-xl shadow-red-600/20 border border-red-400/30">W</button>
+                            <button onClick={() => handleScore(4)} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-blue-600/20 border border-blue-400/30">4</button>
+                            <button onClick={() => handleScore(5)} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-emerald-600/20 border border-emerald-400/30">5</button>
+                            <button onClick={() => handleScore(6)} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-purple-600/20 border border-purple-400/30">6</button>
+                            <button onClick={() => setModalView('WICKET_TYPE')} className="h-16 sm:h-20 rounded-xl md:rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-3xl md:text-4xl active:scale-95 transition-all shadow-xl shadow-red-600/20 border border-red-400/30">W</button>
                         </div>
                     </div>
                 </div>
