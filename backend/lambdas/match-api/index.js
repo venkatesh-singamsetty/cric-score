@@ -103,6 +103,17 @@ exports.handler = async (event) => {
             };
         }
 
+        // --- AUTO-UPGRADE SCHEMA: Ensure Match Totals columns exist ---
+        await client.query(`
+            ALTER TABLE matches 
+            ADD COLUMN IF NOT EXISTS team_a_score INTEGER DEFAULT 0, 
+            ADD COLUMN IF NOT EXISTS team_a_wickets INTEGER DEFAULT 0, 
+            ADD COLUMN IF NOT EXISTS team_a_overs TEXT DEFAULT '0.0', 
+            ADD COLUMN IF NOT EXISTS team_b_score INTEGER DEFAULT 0, 
+            ADD COLUMN IF NOT EXISTS team_b_wickets INTEGER DEFAULT 0, 
+            ADD COLUMN IF NOT EXISTS team_b_overs TEXT DEFAULT '0.0'
+        `);
+
         if (httpMethod === 'POST' && path === '/match') {
             const { teamA, teamB, totalOvers, batFirstTeam, teamASquad, teamBSquad } = JSON.parse(body);
 
@@ -196,14 +207,18 @@ exports.handler = async (event) => {
 
             const res = await client.query(`
                 SELECT m.*, 
-                       (SELECT json_agg(json_build_object(
-                           'inning_number', i.inning_number,
-                           'batting_team_name', i.batting_team_name,
-                           'total_runs', i.total_runs,
-                           'total_wickets', i.total_wickets,
-                           'overs', i.overs,
-                           'balls', i.balls
-                       ) ORDER BY i.inning_number) FROM innings i WHERE i.match_id = m.id) as innings
+                    COALESCE((SELECT SUM(total_runs) FROM innings WHERE match_id = m.id AND batting_team_name = m.team_a_name), m.team_a_score) as team_a_score,
+                    COALESCE((SELECT SUM(total_wickets) FROM innings WHERE match_id = m.id AND batting_team_name = m.team_a_name), m.team_a_wickets) as team_a_wickets,
+                    COALESCE((SELECT SUM(total_runs) FROM innings WHERE match_id = m.id AND batting_team_name = m.team_b_name), m.team_b_score) as team_b_score,
+                    COALESCE((SELECT SUM(total_wickets) FROM innings WHERE match_id = m.id AND batting_team_name = m.team_b_name), m.team_b_wickets) as team_b_wickets,
+                    (SELECT json_agg(json_build_object(
+                         'inning_number', i.inning_number,
+                         'batting_team_name', i.batting_team_name,
+                         'total_runs', i.total_runs,
+                         'total_wickets', i.total_wickets,
+                         'overs', i.overs,
+                         'balls', i.balls
+                     ) ORDER BY i.inning_number) FROM innings i WHERE i.match_id = m.id) as innings
                 FROM matches m 
                 ORDER BY created_at DESC LIMIT 20
             `);

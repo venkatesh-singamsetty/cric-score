@@ -76,6 +76,24 @@ CricScore utilizes the **Aiven Lifecycle Management** platform combined with **A
 
 ---
 
+## ⚡ Real-Time Kafka Showcase (Local Demo)
+CricScore v2.0.0 features a dedicated local showcase script to demonstrate cross-cloud event streaming. Watch live scores populate your terminal directly from Aiven Kafka!
+
+### **1. Run the Showcase Consumer**
+In your terminal, execute the following to connect to the live match stream:
+```bash
+npm install kafkajs dotenv
+node scripts/kafka_showcase.js
+```
+
+### **2. Trigger an Event**
+Open the **[Live App](https://cricscore.venkateshsingamsetty.site)**, log in as a **Scorer**, and post a score update.
+
+### **3. Witness the Fan-Out**
+Your terminal will instantly log the ball-by-ball event (Batter, Bowler, Runs/Wickets) as it iterates through the Aiven Kafka event bus. This confirms 100% decoupling between scoring logic and historical event persistence.
+
+---
+
 
 ## ⚡ Getting Started
 - **Local Developer Preview**: Run the frontend locally (Requires **Node.js 18.x+**).

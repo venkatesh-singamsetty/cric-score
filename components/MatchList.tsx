@@ -13,6 +13,12 @@ interface MatchMetadata {
     id: string;
     team_a_name: string;
     team_b_name: string;
+    team_a_score: number;
+    team_a_wickets: number;
+    team_a_overs: string;
+    team_b_score: number;
+    team_b_wickets: number;
+    team_b_overs: string;
     total_overs: number;
     status: string;
     created_at: string;
@@ -59,6 +65,11 @@ const MatchList: React.FC<MatchListProps> = ({ onSelectMatch, isAdmin, onResumeM
 
     useEffect(() => {
         fetchMatches();
+        // 🔄 Polling: Keep viewer scores live every 10s
+        const interval = setInterval(() => {
+            fetchMatches();
+        }, 10000);
+        return () => clearInterval(interval);
     }, [refreshTrigger, API_URL]);
 
     const calculateResult = (match: MatchMetadata) => {
@@ -153,7 +164,20 @@ const MatchList: React.FC<MatchListProps> = ({ onSelectMatch, isAdmin, onResumeM
                     {filteredMatches.map((match) => {
                         const diff = Date.now() - new Date(match.updated_at).getTime();
                         const isStale = match.status === 'LIVE' && diff > 86400000;
-                        const result = match.status === 'COMPLETED' ? calculateResult(match) : null;
+                        const result = (match.status === 'COMPLETED') ? calculateResult(match) : null;
+                        
+                        // 🎯 Chase Status logic for LIVE matches
+                        let chaseInfo = null;
+                        if (match.status === 'LIVE' && match.innings && match.innings.length >= 1) {
+                            const i1 = match.innings[0];
+                            const target = i1.total_runs + 1;
+                            if (match.innings.length === 2) {
+                                const i2 = match.innings[1];
+                                chaseInfo = `${i2.batting_team_name} NEEDS ${target - i2.total_runs} RUNS`;
+                            } else {
+                                chaseInfo = `TARGET: ${target}`;
+                            }
+                        }
 
                         return (
                             <div
@@ -216,26 +240,29 @@ const MatchList: React.FC<MatchListProps> = ({ onSelectMatch, isAdmin, onResumeM
                                             <h4 className="text-base font-black text-white uppercase tracking-tight italic group-hover:text-indigo-400 transition-colors">
                                                 {match.team_a_name}
                                             </h4>
-                                            {match.innings?.[0] && (
-                                                <span className="text-xs font-black text-slate-400 tabular-nums">
-                                                    {match.innings[0].total_runs}/{match.innings[0].total_wickets} 
-                                                    <span className="text-[10px] text-slate-600 lowercase ml-1">({match.innings[0].overs}.{match.innings[0].balls})</span>
-                                                </span>
-                                            )}
+                                            <span className="text-xs font-black text-slate-400 tabular-nums">
+                                                {match.team_a_score}/{match.team_a_wickets} 
+                                                <span className="text-[10px] text-slate-600 lowercase ml-1">({match.team_a_overs || '0.0'})</span>
+                                            </span>
                                         </div>
 
-                                        <div className="text-[10px] font-black text-slate-600 uppercase italic">VS</div>
+                                        <div className="flex flex-col items-center gap-1">
+                                            <div className="text-[10px] font-black text-slate-600 uppercase italic">VS</div>
+                                            {chaseInfo && (
+                                                <div className="absolute left-1/2 -translate-x-1/2 -bottom-2 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full animate-in slide-in-from-top-2 duration-500">
+                                                    <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest whitespace-nowrap">{chaseInfo}</span>
+                                                </div>
+                                            )}
+                                        </div>
 
                                         <div className="flex flex-col text-right">
                                             <h4 className="text-base font-black text-white uppercase tracking-tight italic group-hover:text-indigo-400 transition-colors">
                                                 {match.team_b_name}
                                             </h4>
-                                            {match.innings?.[1] && (
-                                                <span className="text-xs font-black text-slate-400 tabular-nums">
-                                                    {match.innings[1].total_runs}/{match.innings[1].total_wickets} 
-                                                    <span className="text-[10px] text-slate-600 lowercase ml-1">({match.innings[1].overs}.{match.innings[1].balls})</span>
-                                                </span>
-                                            )}
+                                            <span className="text-xs font-black text-slate-400 tabular-nums">
+                                                {match.team_b_score}/{match.team_b_wickets} 
+                                                <span className="text-[10px] text-slate-600 lowercase ml-1">({match.team_b_overs || '0.0'})</span>
+                                            </span>
                                         </div>
                                     </div>
 

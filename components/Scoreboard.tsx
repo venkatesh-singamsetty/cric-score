@@ -55,7 +55,22 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ currentInnings, previousInnings
                 <td className={`px-4 py-3 text-[10px] font-black uppercase tracking-tight ${highlight ? 'text-indigo-100' : 'text-slate-500'}`}>
                   {player.isOut ? (
                     <span className="text-red-400 opacity-90">
-                      {player.wicketType?.toLowerCase().replace('_', ' ')} b {player.wicketBy}
+                      {(() => {
+                        const type = player.wicketType;
+                        const bowler = player.wicketBy;
+                        const fielder = player.fielderName;
+
+                        if (type === 'CAUGHT') {
+                          if (fielder === bowler) return `c & b ${bowler}`;
+                          return `c ${fielder || '---'} b ${bowler}`;
+                        }
+                        if (type === 'STUMPED') return `st ${fielder || '---'} b ${bowler}`;
+                        if (type === 'RUN_OUT') return `run out (${fielder || '---'})`;
+                        if (type === 'LBW') return `lbw b ${bowler}`;
+                        if (type === 'BOWLED') return `b ${bowler}`;
+                        if (type === 'HIT_WICKET') return `hit wicket b ${bowler}`;
+                        return `${type?.toLowerCase().replace('_', ' ')} b ${bowler}`;
+                      })()}
                     </span>
                   ) : (
                     <span className="text-green-300 opacity-90">{highlight ? 'batting' : 'not out'}</span>

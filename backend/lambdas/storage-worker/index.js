@@ -134,26 +134,93 @@ exports.handler = async (event) => {
                  }
             }
 
+            // 0. Quota Check (Stop zombie updates)
+            const currentStatus = await client.query(
+                `SELECT total_runs, total_wickets, overs, balls FROM innings WHERE id = $1`,
+                [inningId]
+            );
+
+            if (currentStatus.rows.length > 0 && !undo) {
+                const status = currentStatus.rows[0];
+                const MAX_WICKETS = 4; // 5 player match = 4 wickets 
+                const matchTotal = matchTotalOvers || 4;
+                
+                if (status.total_wickets >= MAX_WICKETS || (status.overs >= matchTotal && status.balls === 0)) {
+                    console.log(`[StorageWorker] IGNORE: Inning ${inningId} already at quota (${status.total_wickets} wkts).`);
+                    return { statusCode: 200, body: JSON.stringify({ success: true, message: "Inning complete - ignore update." }) };
+                }
+            }
+
+            // Calculate Net Change for Inning Totals
+            const runsToAdd = ballData ? (ballData.runs + ((ballData.extraType === 'WIDE' || ballData.extraType === 'NO_BALL') ? 1 : 0)) : 0;
+            let inningRunsChange = runsToAdd;
+            let inningWicketChange = (ballData && ballData.isWicket) ? 1 : 0;
+
+            if (undo && ball) {
+                // If undoing, the change should be negative
+                const isWide = ball.extra_type === 'WIDE';
+                const isNoBall = ball.extra_type === 'NO_BALL';
+                inningRunsChange = -(ball.runs + (isWide || isNoBall ? 1 : 0));
+                inningWicketChange = -(ball.is_wicket ? 1 : 0);
+            }
+
             // 1. Update Inning Current State
+            const overValue = (ballData && !undo) ? ballData.overNumber : currentOvers;
+            const ballValue = (ballData && !undo) ? ballData.ballNumber : currentBalls;
+
             await client.query(
                 `UPDATE innings SET 
                     striker_name = COALESCE($1, striker_name), 
                     non_striker_name = COALESCE($2, non_striker_name), 
                     current_bowler_name = COALESCE($3, current_bowler_name), 
-                    overs = COALESCE($4, overs),
-                    balls = COALESCE($5, balls),
-                    total_runs = COALESCE($6, total_runs),
-                    total_wickets = COALESCE($7, total_wickets),
+                    overs = $4,
+                    balls = $5,
+                    total_runs = total_runs + $6,
+                    total_wickets = total_wickets + $7,
                     updated_at = CURRENT_TIMESTAMP
                  WHERE id = $8`,
-                [strikerName, nonStrikerName, bowlerName, currentOvers, currentBalls, explicitTotalRuns, explicitTotalWickets, inningId]
+                [
+                    strikerName, nonStrikerName, bowlerName, 
+                    overValue, ballValue, 
+                    inningRunsChange, inningWicketChange, 
+                    inningId
+                ]
             );
 
-            // 2. Update Match Metadata
-            await client.query(
-                `UPDATE matches SET total_overs = COALESCE($2, total_overs), updated_at = CURRENT_TIMESTAMP WHERE id = $1`, 
-                [matchId, matchTotalOvers]
-            );
+            // 2. Update Match Metadata & Aggregate Totals
+            const matchRecord = await client.query(`SELECT id, team_a_name FROM matches WHERE id = $1`, [matchId]);
+            const matchInfo = matchRecord.rows[0];
+            const inningRecord = await client.query(`SELECT batting_team_name, total_runs, total_wickets, overs, balls, inning_number FROM innings WHERE id = $1`, [inningId]);
+            const inningInfo = inningRecord.rows[0];
+
+            if (matchInfo && inningInfo) {
+                // 🛡️ Bulletproof Mapping: Normalize names for comparison
+                const matchTeamA = (matchInfo.team_a_name || '').trim().toUpperCase();
+                const battingTeam = (inningInfo.batting_team_name || '').trim().toUpperCase();
+                const isTeamA = matchTeamA === battingTeam;
+
+                // Automatically transition to COMPLETED if 2nd innings is over
+                let statusVal = 'LIVE';
+                if (inningInfo.inning_number === 2) {
+                    const isAllOut = inningInfo.total_wickets >= 10;
+                    const isOversUp = inningInfo.overs >= matchTotalOvers;
+                    // We don't check target here as it's complex without the target value in the worker, 
+                    // but we can look for is_match_over in ballData or just wait for the final ball.
+                    if (isAllOut || isOversUp) statusVal = 'COMPLETED';
+                }
+
+                await client.query(
+                    `UPDATE matches SET 
+                        ${scoreCol} = $2, 
+                        ${wicketCol} = $3, 
+                        ${overCol} = $4,
+                        total_overs = COALESCE($5, total_overs), 
+                        status = COALESCE(NULLIF($6, 'LIVE'), status),
+                        updated_at = CURRENT_TIMESTAMP 
+                     WHERE id = $1`, 
+                    [matchId, inningInfo.total_runs, inningInfo.total_wickets, `${inningInfo.overs}.${inningInfo.balls}`, matchTotalOvers, statusVal]
+                );
+            }
 
             if (!syncOnly && ballData && !undo) {
                 // 3. Log Ball Event

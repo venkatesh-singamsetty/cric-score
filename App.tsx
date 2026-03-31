@@ -290,9 +290,46 @@ const App: React.FC = () => {
                     })
                 });
                 const { inningId: id2 } = await response.json();
+                // 🛡️ Zero-Wait Transition: Directly hydrate 2nd Inning state without reload
                 const innings2 = createInnings(id2, nextBattingTeam, nextBowlingTeam, 2, target);
-                setCurrentInnings(innings2);
+                
+                // Show transition UI for 1.2s then snap into action
                 setMatchStatus(MatchStatus.INNINGS_BREAK);
+                setCurrentInnings(null); 
+                
+                setTimeout(() => {
+                    // Update state carefully
+                    setTeamA(prev => prev ? { ...nextBattingTeam, name: nextBattingTeam.name === prev.name ? prev.name : teamB!.name } : nextBattingTeam);
+                    setTeamB(prev => prev ? { ...nextBowlingTeam, name: nextBowlingTeam.name === prev.name ? prev.name : teamA!.name } : nextBowlingTeam);
+                    setPreviousInnings(innings2.inningNumber === 2 ? {
+                        inningNumber: 1,
+                        battingTeamName: teamA?.name === nextBowlingTeam.name ? teamA.name : teamB!.name,
+                        totalRuns: target - 1,
+                        totalWickets: 0, // Placeholder
+                        overs: totalOvers,
+                        balls: 0
+                    } : undefined);
+                    setCurrentInnings(innings2);
+                    setMatchStatus(MatchStatus.LIVE);
+                    // Force save for persistence backup
+                    localStorage.setItem(getMatchStateKey(emailTo), JSON.stringify({
+                        matchStatus: MatchStatus.LIVE,
+                        matchId,
+                        teamA: nextBattingTeam.name === teamA?.name ? teamA : teamB,
+                        teamB: nextBowlingTeam.name === teamB?.name ? teamB : teamA,
+                        totalOvers,
+                        previousInnings: [{
+                            inningNumber: 1,
+                            battingTeamName: teamA?.name === nextBowlingTeam.name ? teamA.name : teamB!.name,
+                            totalRuns: target - 1,
+                            totalWickets: 0,
+                            overs: totalOvers,
+                            balls: 0
+                        }],
+                        currentInnings: innings2,
+                        hasSentAutoEmail: false
+                    }));
+                }, 1200);
             } catch (err) {
                 console.error("Failed to create 2nd Innings:", err);
             }
@@ -894,8 +931,21 @@ const App: React.FC = () => {
                     />
                 )}
 
-                {matchStatus === MatchStatus.LIVE && currentInnings && view === 'SCORER' && isAuthorized.SCORER && (
+                {/* Structural Transition Guard: Kills Ghost Flicker by literally removing the component from the tree */}
+                {matchStatus === MatchStatus.INNINGS_BREAK && (
+                    <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center z-[500] gap-6 p-8 animate-in fade-in duration-500">
+                        <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+                        <div className="text-center">
+                            <h2 className="text-2xl font-black text-white uppercase tracking-tighter italic mb-2">Finalizing 1st Innings...</h2>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] animate-pulse">Switching Ends & Squads</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Scorer View Isolation */}
+                {matchStatus !== MatchStatus.INNINGS_BREAK && (matchStatus === MatchStatus.LIVE || matchStatus === MatchStatus.COMPLETED) && currentInnings && view === 'SCORER' && isAuthorized.SCORER && (
                     <MatchView
+                        key={currentInnings.id}
                         initialState={currentInnings}
                         previousInnings={previousInnings}
                         totalOvers={totalOvers}
@@ -904,111 +954,10 @@ const App: React.FC = () => {
                         onResetMatch={() => setShowResetConfirm(true)}
                         onForceReset={forceResetMatch}
                         onUpdateOvers={updateMatchOvers}
-                        onStateChange={(state) => setCurrentInnings(state)} // Sync ball-by-ball
+                        onStateChange={(state) => setCurrentInnings(state)} 
                     />
                 )}
 
-                {matchStatus === MatchStatus.INNINGS_BREAK && currentInnings && previousInnings && (
-                    <div className="h-full overflow-y-auto flex items-center justify-center p-4 bg-slate-950 selection:bg-indigo-500/30">
-                        <div className="relative w-full max-w-2xl animate-in zoom-in-95 duration-500 text-center">
-                            <div className="bg-slate-900 border border-white/5 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden backdrop-blur-3xl">
-                                <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic mb-4">Innings Break</h2>
-                                <p className="text-xl text-indigo-400 font-bold mb-8">
-                                    Target: {currentInnings.target}
-                                </p>
-                                <button
-                                    onClick={() => setMatchStatus(MatchStatus.LIVE)}
-                                    className="w-full h-20 bg-indigo-600 text-white rounded-[1.5rem] font-black text-xl uppercase tracking-widest italic hover:bg-indigo-500 active:scale-[0.98] transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3"
-                                >
-                                    START 2ND INNINGS
-                                    <span className="text-2xl">🏏</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {matchStatus === MatchStatus.COMPLETED && currentInnings && (
-                    <div className="h-full overflow-y-auto flex py-10 items-center justify-center p-4 bg-slate-950 selection:bg-indigo-500/30">
-                        <div className="relative w-full max-w-2xl animate-in zoom-in-95 duration-500">
-                            {/* Dramatic Glow Background */}
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-indigo-600/10 blur-[120px] rounded-full -z-10"></div>
-
-                            <div className="bg-slate-900 border border-white/5 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden backdrop-blur-3xl">
-                                {/* Accent Header */}
-                                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600"></div>
-
-                                <div className="text-center space-y-8">
-                                    <div className="space-y-2">
-                                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-4">
-                                            <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
-                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-500">Official Result</span>
-                                        </div>
-                                        <div className="text-8xl animate-bounce">🏆</div>
-                                        <h1 className="text-6xl font-black text-white uppercase tracking-tighter italic leading-none">
-                                            Match<br />Concluded
-                                        </h1>
-                                    </div>
-
-                                    <div className="bg-indigo-600/10 border border-indigo-500/20 rounded-3xl p-8 transform hover:scale-[1.02] transition-transform">
-                                        <p className="text-4xl font-black text-indigo-400 uppercase tracking-tight italic drop-shadow-2xl">
-                                            {getWinnerMessage()}
-                                        </p>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <label className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500">Final Scorecards</label>
-                                        <div className="grid grid-cols-1 gap-2">
-                                            {/* First Innings Summary */}
-                                            <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-5 flex justify-between items-center group hover:bg-slate-800 transition-colors">
-                                                <div className="text-left">
-                                                    <span className="text-[10px] font-black text-slate-500 block mb-1 uppercase tracking-widest">Innings 1</span>
-                                                    <span className="text-xl font-black text-slate-300 uppercase tracking-tight italic">{previousInnings?.battingTeamName}</span>
-                                                </div>
-                                                <div className="text-4xl font-black text-white tabular-nums">
-                                                    {previousInnings?.totalRuns}<span className="text-slate-600 mx-1 text-2xl">/</span>{previousInnings?.totalWickets}
-                                                </div>
-                                            </div>
-
-                                            {/* Second Innings Summary */}
-                                            <div className="bg-indigo-600 border border-indigo-400 rounded-2xl p-5 flex justify-between items-center shadow-xl shadow-indigo-600/20">
-                                                <div className="text-left">
-                                                    <span className="text-[10px] font-black text-indigo-100 block mb-1 uppercase tracking-widest">Innings 2</span>
-                                                    <span className="text-xl font-black text-white uppercase tracking-tight italic">{currentInnings.battingTeamName}</span>
-                                                </div>
-                                                <div className="text-4xl font-black text-white tabular-nums">
-                                                    {currentInnings.totalRuns}<span className="text-indigo-300 mx-1 text-2xl">/</span>{currentInnings.totalWickets}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-12 w-full space-y-4">
-                                        <div className="flex flex-col md:flex-row gap-4 w-full">
-                                            <button
-                                                onClick={copyMatchLink}
-                                                className={`flex-1 h-20 rounded-[1.5rem] font-black text-xl uppercase tracking-widest italic transition-all shadow-xl flex items-center justify-center gap-3 ${copyFeedback ? 'bg-emerald-600 text-white shadow-emerald-600/20' : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-600/20 active:scale-[0.98]'}`}
-                                            >
-                                                {copyFeedback ? 'LINK COPIED! ✅' : 'SHARE SCORECARD 🔗'}
-                                            </button>
-                                            <button
-                                                onClick={() => setShowResetConfirm(true)}
-                                                className="flex-1 h-20 bg-white text-slate-900 rounded-[1.5rem] font-black text-xl uppercase tracking-widest italic hover:bg-slate-100 active:scale-[0.98] transition-all shadow-2xl flex items-center justify-center gap-3"
-                                            >
-                                                {view === 'SCORER' ? 'START FRESH MATCH 🏏' : 'RESET HUB 🔄'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Footer Detail */}
-                            <p className="mt-8 text-[10px] font-black text-slate-600 uppercase tracking-[0.5em] text-center italic opacity-50">
-                                CricScore Record Log #77291-LIVE
-                            </p>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );

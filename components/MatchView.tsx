@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { InningsState, BallEvent, ExtraType, WicketType, Bowler } from '../types';
+import { InningsState, BallEvent, ExtraType, WicketType, Bowler, Player } from '../types';
 import Scoreboard from './Scoreboard';
 
 interface MatchViewProps {
@@ -14,7 +14,7 @@ interface MatchViewProps {
     onStateChange?: (state: InningsState) => void;
 }
 
-type ModalType = 'NONE' | 'WICKET_TYPE' | 'BATTER_SELECT' | 'BOWLER_SELECT' | 'FIELDER_SELECT' | 'EXTRA_RUNS' | 'RUN_OUT_MODAL';
+type ModalType = 'NONE' | 'WICKET_TYPE' | 'BATTER_SELECT' | 'BOWLER_SELECT' | 'FIELDER_SELECT' | 'EXTRA_RUNS' | 'RUN_OUT_MODAL' | 'SUMMARY_MODAL';
 
 const MatchView: React.FC<MatchViewProps> = ({
     initialState,
@@ -50,11 +50,24 @@ const MatchView: React.FC<MatchViewProps> = ({
     const savedState = loadSavedLiveState();
 
     const [innings, setInnings] = useState<InningsState>(savedState ? savedState.innings : initialState);
+    
+    // 🔥 GHOST GUARD: Sync local state with prop change only if we aren't using a specific key
+    // Since we use key={currentInnings.id} in App.tsx now, this is a safety fallback.
+    if (innings.id !== initialState.id) {
+        return (
+            <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center z-[500] gap-4">
+                <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Initializing Inning {initialState.inningNumber}...</p>
+            </div>
+        );
+    }
+
     const [history, setHistory] = useState<InningsState[]>(savedState ? savedState.history || [] : []);
     const [lastCommentary, setLastCommentary] = useState<string>(savedState ? savedState.lastCommentary || "" : (initialState.inningNumber === 2 ? "Second innings started!" : "Match started."));
     const [isProcessing, setIsProcessing] = useState(false);
     const isProcessingRef = useRef(false);
     const [showScoreboard, setShowScoreboard] = useState(false);
+    const [isLinkCopied, setIsLinkCopied] = useState(false);
 
     // Scoring State UI controls
     const [pendingExtra, setPendingExtra] = useState<ExtraType>(ExtraType.NONE);
@@ -442,6 +455,13 @@ const MatchView: React.FC<MatchViewProps> = ({
             [nextInnings.strikerId, nextInnings.nonStrikerId] = [nextInnings.nonStrikerId, nextInnings.strikerId];
         }
 
+        // --- NEW: INNINGS / MATCH END CHECK ---
+        const totalPossibleWickets = nextInnings.battingOrder.length - 1; // 5 players = 4 wickets = ALL OUT
+        const isAllOut = nextInnings.totalWickets >= totalPossibleWickets;
+        const isOversDone = nextInnings.overs >= totalOvers && nextInnings.balls === 0;
+        const isTargetChased = nextInnings.inningNumber === 2 && nextInnings.target && nextInnings.totalRuns >= nextInnings.target;
+        const isMatchEnding = isAllOut || isOversDone || isTargetChased;
+
         // Commit State Updates - Deep Copy to avoid mutation leaks
         const finalInnings: InningsState = {
             ...nextInnings,
@@ -459,7 +479,6 @@ const MatchView: React.FC<MatchViewProps> = ({
         if (overCompleted) {
             const currentOverNumber = newBallEvent.overNumber;
             const overBalls = finalInnings.allBalls.filter(b => b.overNumber === currentOverNumber);
-
             const runsOffBatInOver = overBalls.reduce((sum, b) => {
                 if (b.extraType !== ExtraType.NONE) return sum;
                 return sum + b.runs;
@@ -475,12 +494,6 @@ const MatchView: React.FC<MatchViewProps> = ({
         await postScoreUpdate(newBallEvent, finalInnings);
         setPendingExtra(ExtraType.NONE);
         setPendingWicketInfo(null);
-
-        // Check Match/Innings End Conditions
-        const isAllOut = finalInnings.totalWickets >= 10;
-        const isOversDone = finalInnings.overs >= totalOvers;
-        const isTargetChased = finalInnings.target && finalInnings.totalRuns >= finalInnings.target;
-        const isMatchEnding = isAllOut || isOversDone || isTargetChased;
 
         // Logic for next actions (Modals)
         setModalView('NONE'); // Close wicket type modal if open
@@ -500,10 +513,19 @@ const MatchView: React.FC<MatchViewProps> = ({
         }
         setLastCommentary(commentary);
 
+        setInnings(finalInnings);
+        await postScoreUpdate(newBallEvent, finalInnings);
+        setPendingExtra(ExtraType.NONE);
+        setPendingWicketInfo(null);
+
         if (isMatchEnding) {
-            // Delay slightly so users see the wicket/run
-            setTimeout(() => onInningsEnd(finalInnings), 500);
-            return; // Lock the UI permanently until the parent unmounts this view
+            // LOCK ALL FURTHER PROCESSING INSTANTLY
+            isProcessingRef.current = true; // Permanent lock
+            setIsProcessing(true);
+            setTimeout(() => {
+                setModalView('SUMMARY_MODAL');
+            }, 500);
+            return; 
         }
 
         isProcessingRef.current = false;
@@ -781,23 +803,32 @@ const MatchView: React.FC<MatchViewProps> = ({
                     {innings.bowlingOrder.map(id => {
                         const bowler = innings.bowlers[id];
                         const isCurrent = id === innings.currentBowlerId;
+                        const maxOvers = Math.max(1, Math.ceil(totalOvers / 5));
+                        const isLimitReached = bowler.overs >= maxOvers;
+                        const isFinalOver = bowler.overs === maxOvers - 1;
+                        const isDisabled = isCurrent || isLimitReached;
+
                         return (
                             <button
                                 key={id}
                                 onClick={() => handleBowlerSelected(id)}
-                                disabled={isCurrent}
-                                className={`w-full text-left px-5 py-4 rounded-2xl flex justify-between items-center transition-all ${isCurrent ? 'bg-slate-800/30 opacity-20 cursor-not-allowed grayscale' : 'bg-white/5 hover:bg-purple-600 group active:scale-95 border border-white/5'}`}
+                                disabled={isDisabled}
+                                className={`w-full text-left px-5 py-4 rounded-2xl flex justify-between items-center transition-all ${isDisabled ? 'bg-slate-800/30 opacity-40 cursor-not-allowed grayscale' : 'bg-white/5 hover:bg-purple-600 group active:scale-95 border border-white/10'}`}
                             >
                                 <div className="flex items-center gap-3 min-w-0">
                                     <span className="text-lg opacity-40 group-hover:opacity-100 transition-opacity">🎾</span>
                                     <div className="flex flex-col min-w-0">
-                                        <span className={`font-black uppercase tracking-tight text-sm italic truncate ${isCurrent ? 'text-slate-500' : 'text-slate-200 group-hover:text-white'}`}>{bowler.name}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`font-black uppercase tracking-tight text-sm italic truncate ${isDisabled ? 'text-slate-500' : 'text-slate-200 group-hover:text-white'}`}>{bowler.name}</span>
+                                            {isFinalOver && !isDisabled && <span className="text-[7px] font-black bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded border border-yellow-500/30 animate-pulse">FINAL</span>}
+                                            {isLimitReached && <span className="text-[7px] font-black bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30">MAXED</span>}
+                                        </div>
                                         <div className="text-[10px] font-bold text-slate-500 group-hover:text-purple-200">{bowler.overs}.{bowler.balls} OVS • {bowler.wickets} WKT</div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs p-2 hover:bg-white/20 rounded-lg transition-colors" onClick={(e) => { e.stopPropagation(); handleRenameBowler(id); }}>✏️</span>
-                                    {!isCurrent && <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 group-hover:text-white opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">Select</span>}
+                                    {!isDisabled && <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 group-hover:text-white opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">Select</span>}
                                 </div>
                             </button>
                         );
@@ -877,6 +908,125 @@ const MatchView: React.FC<MatchViewProps> = ({
             {modalView === 'BOWLER_SELECT' && <BowlerSelectModal />}
             {modalView === 'FIELDER_SELECT' && <FielderSelectModal />}
             {modalView === 'EXTRA_RUNS' && <ExtraRunsModal />}
+            {modalView === 'SUMMARY_MODAL' && (
+                <div className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-[250] p-4 backdrop-blur-xl animate-in fade-in duration-500">
+                    <div className="bg-slate-900 border border-white/10 rounded-[3rem] p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-500 text-center relative overflow-hidden">
+                        <div className="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/20 blur-3xl rounded-full"></div>
+                        <div className="relative z-10">
+                            <div className="w-20 h-20 bg-indigo-600 rounded-3xl mx-auto flex items-center justify-center text-4xl shadow-2xl shadow-indigo-600/40 mb-6 rotate-12">
+                                {innings.inningNumber === 1 ? '🌓' : '🏆'}
+                            </div>
+                            <h3 className="text-3xl font-black text-white uppercase tracking-tighter italic mb-2">
+                                {innings.inningNumber === 1 ? 'Innings Over!' : 'Match Over!'}
+                            </h3>
+                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-6">
+                                {innings.battingTeamName} finished at {innings.totalRuns}/{innings.totalWickets}
+                            </p>
+
+                            <div className="space-y-3 mb-8">
+                                <div className="grid grid-cols-2 gap-2 text-left">
+                                    <div className="bg-white/5 rounded-[1.5rem] p-3 border border-white/5">
+                                        <span className="block text-[6px] font-black text-slate-500 uppercase tracking-widest mb-1">Top Scorer</span>
+                                        <span className="text-xs font-black text-white truncate block">
+                                            {(Object.values(innings.players) as Player[]).sort((a,b) => b.runs - a.runs)[0]?.name || 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div className="bg-white/5 rounded-[1.5rem] p-3 border border-white/5">
+                                        <span className="block text-[6px] font-black text-slate-500 uppercase tracking-widest mb-1">Best Bowler</span>
+                                        <span className="text-xs font-black text-white truncate block">
+                                            {(() => {
+                                                const top = (Object.values(innings.bowlers) as Bowler[]).sort((a,b) => b.wickets - a.wickets)[0];
+                                                return top && top.wickets > 0 ? top.name : 'N/A';
+                                            })()}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {innings.inningNumber === 1 ? (
+                                <div className="bg-white/5 rounded-2xl p-4 mb-8 border border-white/5">
+                                    <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Target for {innings.bowlingTeamName}</span>
+                                    <span className="text-4xl font-black text-indigo-400 italic tabular-nums">{innings.totalRuns + 1}</span>
+                                </div>
+                            ) : (
+                                <div className="bg-indigo-600 rounded-2xl p-4 mb-4 shadow-xl shadow-indigo-600/20">
+                                    <span className="block text-[8px] font-black text-indigo-100 uppercase tracking-widest mb-1">Final Match Result</span>
+                                    <span className="text-lg font-black text-white uppercase italic tracking-tight">
+                                        {(() => {
+                                            if (!previousInnings) return "MATCH COMPLETED";
+                                            const i1 = previousInnings;
+                                            const i2 = innings;
+                                            if (i2.totalRuns > i1.totalRuns) {
+                                                const maxWickets = i2.battingOrder.length - 1;
+                                                const wickWonBy = maxWickets - i2.totalWickets;
+                                                return `${i2.battingTeamName} WON BY ${wickWonBy} WICKET${wickWonBy !== 1 ? 'S' : ''}`;
+                                            } else if (i1.totalRuns > i2.totalRuns) {
+                                                return `${i1.battingTeamName} WON BY ${i1.totalRuns - i2.totalRuns} RUNS`;
+                                            } else {
+                                                return "MATCH TIED";
+                                            }
+                                        })()}
+                                    </span>
+                                </div>
+                            )}
+
+                            {innings.inningNumber === 1 ? (
+                                <button
+                                    onClick={() => {
+                                        setModalView('NONE');
+                                        onInningsEnd(innings);
+                                    }}
+                                    className="w-full py-5 bg-white text-slate-900 rounded-3xl font-black text-xs uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl hover:bg-slate-200"
+                                >
+                                    START 2ND INNINGS →
+                                </button>
+                            ) : (
+                                <div className="space-y-4 mt-6">
+                                    <button
+                                        onClick={() => {
+                                            const url = window.location.origin + "?match=" + matchId;
+                                            navigator.clipboard.writeText(url);
+                                            setIsLinkCopied(true);
+                                            setTimeout(() => setIsLinkCopied(false), 2000);
+                                        }}
+                                        className={`w-full py-5 ${isLinkCopied ? 'bg-emerald-600' : 'bg-indigo-600/20 text-indigo-400'} border border-white/5 rounded-3xl font-black text-xs uppercase tracking-[0.2em] transition-all active:scale-95 flex items-center justify-center gap-3`}
+                                    >
+                                        <span>{isLinkCopied ? '✅ LINK COPIED!' : '🔗 SHARE SCOREBOARD'}</span>
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => {
+                                            // Reset storage for THIS match and redirect to Hub (root view)
+                                            localStorage.removeItem(getLiveKey());
+                                            window.location.href = window.location.origin;
+                                        }}
+                                        className="w-full py-5 bg-indigo-600 text-white rounded-3xl font-black text-xs uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl hover:bg-indigo-500 flex items-center justify-center gap-3"
+                                    >
+                                        🏁 EXIT & VIEW MATCH HUB
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => onResetMatch?.()}
+                                        className="w-full py-5 bg-white text-rose-600 rounded-3xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-xl hover:bg-rose-50"
+                                    >
+                                        🆕 START FRESH MATCH
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => {
+                                            setShowScoreboard(true);
+                                            setModalView('NONE');
+                                        }}
+                                        className="w-full py-3 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:text-white transition-colors"
+                                    >
+                                        Inspect Scoreboard
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showScoreboard && (
                 <Scoreboard
