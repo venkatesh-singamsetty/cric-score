@@ -50,7 +50,7 @@ This engineering trace documents the real-world resolutions for the CricScore ba
 
 ### 44. **Playwright Polluting Production Database**
 
-- **Symptom**: Dozens of duplicate "CHICAGO SPARTANS vs SHARK BLUE" matches appeared on the live `cricscore.venkateshsingamsetty.site` viewer dashboard with broken scores (like `4/1` after 0.2 overs).
+- **Symptom**: Dozens of duplicate "CHICAGO SPARTANS vs SHARK BLUE" matches appeared on the live `cricscore.yourdomain.com` viewer dashboard with broken scores (like `4/1` after 0.2 overs).
 - **Cause**: The Playwright configuration defaults to testing against the live production URL. Running `npx playwright test` locally was creating authentic database entries without cleaning them up upon failure or timeout.
 - **Fix**: Connected directly to the Aiven PostgreSQL production database via `psql` and executed a targeted cleanup: `DELETE FROM matches WHERE team_a_name = 'CHICAGO SPARTANS' AND team_b_name = 'SHARK BLUE';`.
 
