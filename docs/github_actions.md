@@ -37,9 +37,9 @@ Because we are forced to keep all workflow files completely flat inside the `.gi
 
 These pipelines validate that the application builds, tests pass, and infrastructure is secure before deployment.
 
-- `frontend.yml`: Validates React UI components (Vitest, ESLint).
-- `backend-infra.yml`: Validates Serverless Lambdas and Terraform configurations.
-- `e2e.yml`: Executes End-to-End browser tests via Playwright.
+- `frontend.yml`: Runs React UI checks (Vitest/ESLint) on PRs. On merge/push to `main`, it automatically compiles and deploys the frontend bundle sequentially to `dev` S3, then `prod` S3.
+- `backend-infra.yml`: Runs serverless Lambdas unit tests and Terraform format/validation checks on PRs. On merge/push to `main`, it automatically provisions and deploys backend Lambdas/infrastructure sequentially to the `dev`, then `prod` AWS environments.
+- `e2e.yml`: Runs Playwright End-to-End browser tests. Dynamically runs against the `dev` URL context during PRs and the `prod` URL context during `main` branch push triggers.
 
 ### Security & Governance (Triggered on Pull Request)
 
