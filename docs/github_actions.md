@@ -53,7 +53,7 @@ These pipelines perform deep static analysis and compliance checks.
 
 These pipelines run asynchronously on schedules or specific deployment events.
 
-- `keepalive.yml`: Scheduled CRON job that pings the Aiven Database to prevent inactivity pauses.
+- `keepalive.yml`: Scheduled CRON job that pings the Aiven Database to prevent inactivity pauses. Runs within the `prod` environment context to securely access the database connection string.
 - `dast.yml`: Nightly scheduled Dynamic Application Security Testing (OWASP ZAP) against the live API.
-- `drift.yml`: Nightly scheduled Terraform Drift Detection to alert if live AWS resources deviate from the IaC state.
+- `drift.yml`: Nightly scheduled Terraform Drift Detection. Runs as a matrix check across both `dev` and `prod` environments, using environment-specific state keys and loading the correct environment secrets/variables to detect manual infrastructure modifications.
 - `release.yml`: Triggered automatically on merge to `main` to generate Semantic Versions and changelogs.
