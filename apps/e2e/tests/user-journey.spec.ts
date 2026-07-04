@@ -2,7 +2,9 @@ import { test, expect } from "@playwright/test";
 
 test.describe("User Journey - Full Match Scoring", () => {
   test.afterEach(async ({ request }) => {
-    const API_URL = "https://ispht71fh0.execute-api.us-east-1.amazonaws.com";
+    const API_URL =
+      process.env.API_URL ||
+      "https://ispht71fh0.execute-api.us-east-1.amazonaws.com";
     const res = await request.get(`${API_URL}/matches`);
     if (res.ok()) {
       const matches = await res.json();
