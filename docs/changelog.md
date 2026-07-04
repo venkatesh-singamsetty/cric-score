@@ -6,6 +6,14 @@
 * add feedback link and fix email batsman sort order ([#101](https://github.com/venkatesh-singamsetty/cricscore/issues/101)) ([501aa10](https://github.com/venkatesh-singamsetty/cricscore/commit/501aa106670978d56aa73ec8a6d0176d246b9ea4))
 * complete dev/prod environment isolation, workflow fixes, and dependency upgrades ([#106](https://github.com/venkatesh-singamsetty/cricscore/issues/106)) ([8adc278](https://github.com/venkatesh-singamsetty/cricscore/commit/8adc278445ddeb0c557ba0ce140048934faaf570))
 
+# [3.3.0](https://github.com/venkatesh-singamsetty/cricscore/compare/v3.2.2...v3.3.0) (2026-07-04)
+
+
+### Features
+
+* add feedback link and fix email batsman sort order ([#101](https://github.com/venkatesh-singamsetty/cricscore/issues/101)) ([501aa10](https://github.com/venkatesh-singamsetty/cricscore/commit/501aa106670978d56aa73ec8a6d0176d246b9ea4))
+* complete dev/prod environment isolation, workflow fixes, and dependency upgrades ([#106](https://github.com/venkatesh-singamsetty/cricscore/issues/106)) ([8adc278](https://github.com/venkatesh-singamsetty/cricscore/commit/8adc278445ddeb0c557ba0ce140048934faaf570))
+
 # 📅 CricScore: Full Project Timeline & Release Log
 
 This document tracks the complete evolutionary history of the CricScore platform.
