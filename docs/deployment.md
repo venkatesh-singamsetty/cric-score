@@ -193,9 +193,15 @@ We provide a powerful script that uses the GitHub CLI to automatically create yo
    ./infra/scripts/setup_github_envs.sh
    ```
 
-### Branch Protection and CI
+### Branch Protection & Deployment Rules
 
-The `main` branch is protected. All PRs must pass status checks before merging.
-Pushing to `main` will automatically deploy the changes using the `backend-infra.yml` and `frontend.yml` workflows.
+To protect the integrity of environments, CricScore enforces the following deployment policies:
+
+- **Pull Request (PR) Validation**: When a PR is opened or updated, the pipeline runs code formatters, security scanners, and test suites (including Playwright E2E tests). **No deployments are performed on PR branches** to prevent developers from concurrently overwriting and breaking the shared `dev` sandbox environment.
+- **Merge/Push to `main`**: Merging a PR into `main` automatically triggers a sequential deployment:
+  1. Installs, builds, formats, and validates the branch.
+  2. Automatically deploys the changes to the **`dev`** environment context first.
+  3. Sequentially triggers the deployment to the **`prod`** environment context.
+- **Manual Deployments**: Deploys can be manually triggered to target `dev` or `prod` using the `workflow_dispatch` option in the GitHub Actions UI.
 
 © 2026 CricScore Documentation. 🏎️🏁🚀
