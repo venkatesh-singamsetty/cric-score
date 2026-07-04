@@ -1,3 +1,10 @@
+# [3.4.0](https://github.com/venkatesh-singamsetty/cricscore/compare/v3.3.0...v3.4.0) (2026-07-04)
+
+
+### Features
+
+* complete dev/prod environment isolation, workflow fixes, and dependency upgrades ([#106](https://github.com/venkatesh-singamsetty/cricscore/issues/106)) ([8adc278](https://github.com/venkatesh-singamsetty/cricscore/commit/8adc278445ddeb0c557ba0ce140048934faaf570))
+
 # [3.3.0](https://github.com/venkatesh-singamsetty/cricscore/compare/v3.2.2...v3.3.0) (2026-07-04)
 
 
