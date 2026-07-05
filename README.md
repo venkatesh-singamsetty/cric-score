@@ -286,6 +286,11 @@ AI tools were used as productivity accelerators for:
 - Troubleshooting
 - Architecture brainstorming
 
+## AI Agents and Tools Used
+
+- **Antigravity / Gemini 3.1 Pro**: Used for autonomous agentic coding, writing Vitest mock tests, implementing the Model Context Protocol (MCP), debugging database connection isolation, and refactoring backend Lambdas.
+- **Claude 3.5 Sonnet**: Used for initial architecture planning and logic generation.
+
 Engineering decisions were reviewed manually including:
 
 - Cloud architecture

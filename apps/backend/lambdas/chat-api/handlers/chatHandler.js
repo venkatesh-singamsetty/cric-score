@@ -117,14 +117,24 @@ Current Active Match Context: ${matchContext || "None provided"}
   });
 
   // Step 5: Initial LLM call
-  let response = await openai.chat.completions.create({
-    model: LLM_MODEL,
-    messages,
-    tools,
-    tool_choice: "auto",
-    temperature: 0.1,
-    max_tokens: 500,
-  });
+  let response;
+  try {
+    response = await openai.chat.completions.create({
+      model: LLM_MODEL,
+      messages,
+      tools,
+      tool_choice: "auto",
+      temperature: 0.1,
+      max_tokens: 500,
+    });
+  } catch (err) {
+    console.error("chatHandler: LLM call error:", err);
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({ error: "LLM processing failed" }),
+    };
+  }
 
   let responseMessage = response.choices[0].message;
 
