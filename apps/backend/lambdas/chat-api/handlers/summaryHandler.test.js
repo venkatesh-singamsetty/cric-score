@@ -53,19 +53,53 @@ describe("summaryHandler", () => {
 
   it("generates summary via LLM and caches it when no prior summary", async () => {
     querySpy
-      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({}) // SET search_path
       .mockResolvedValueOnce({
         rows: [
-          { id: "m2", team_a_name: "A", team_b_name: "B", status: "COMPLETED" },
+          {
+            id: "m2",
+            team_a_name: "A",
+            team_b_name: "B",
+            status: "COMPLETED",
+            team_a_score: 50,
+            team_a_wickets: 3,
+            team_b_score: 51,
+            team_b_wickets: 2,
+            toss_winner: "A",
+            toss_decision: "BAT",
+            match_winner: "B",
+          },
         ],
-      })
+      }) // match query
       .mockResolvedValueOnce({
-        rows: [{ name: "Rohit", batting_team_name: "A" }],
-      })
+        rows: [
+          {
+            name: "Rohit",
+            runs: 30,
+            balls_faced: 20,
+            fours: 3,
+            sixes: 1,
+            batting_team_name: "A",
+          },
+        ],
+      }) // batters
       .mockResolvedValueOnce({
-        rows: [{ name: "Bumrah", bowling_team_name: "B" }],
-      })
-      .mockResolvedValueOnce({});
+        rows: [
+          {
+            name: "Bumrah",
+            wickets: 2,
+            runs_conceded: 10,
+            bowling_team_name: "B",
+          },
+        ],
+      }) // bowlers
+      .mockResolvedValueOnce({
+        rows: [
+          { inning_number: 1, legal_balls: 6 },
+          { inning_number: 2, legal_balls: 6 },
+        ],
+      }) // ball count query
+      .mockResolvedValueOnce({}); // UPDATE cache
 
     mockCreate.mockResolvedValue({
       choices: [{ message: { content: "Thrilling match." } }],
@@ -78,14 +112,15 @@ describe("summaryHandler", () => {
 
   it("returns 500 on LLM failure", async () => {
     querySpy
-      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({}) // SET search_path
       .mockResolvedValueOnce({
         rows: [
           { id: "m3", team_a_name: "A", team_b_name: "B", status: "COMPLETED" },
         ],
-      })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] });
+      }) // match query
+      .mockResolvedValueOnce({ rows: [] }) // batters
+      .mockResolvedValueOnce({ rows: [] }) // bowlers
+      .mockResolvedValueOnce({ rows: [] }); // ball count query
 
     mockCreate.mockRejectedValue(new Error("LLM API error"));
     const res = await summaryHandler("m3", corsHeaders);
