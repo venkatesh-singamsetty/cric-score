@@ -140,6 +140,84 @@ Instead of using a Vector Database (which introduces sync latency), the CricScor
 
 When connecting the Node.js `pg` client to the Aiven PostgreSQL database, the connection string (`DATABASE_URL`) provided by Terraform includes `?sslmode=require`. To prevent `self-signed certificate in certificate chain` errors, the Lambda explicitly strips this query parameter and configures the connection pool with `ssl: { rejectUnauthorized: false }`.
 
+---
+
+## 📊 AI Post-Match Summary (`summaryHandler.js`)
+
+After a match concludes, the scorer can trigger an **AI-generated post-match report** via the Chat interface. The summary is generated once and then cached in the `matches.ai_summary` column for all subsequent requests.
+
+### How It Works
+
+```mermaid
+sequenceDiagram
+    actor Scorer
+    participant Frontend as React Frontend
+    participant APIGW as API Gateway (/chat/summary)
+    participant SummaryHandler as summaryHandler.js
+    participant DB as Aiven PostgreSQL
+    participant LLM as OpenRouter LLM
+
+    Scorer->>Frontend: Click "Generate AI Report"
+    Frontend->>APIGW: POST /chat/summary { matchId }
+    APIGW->>SummaryHandler: Trigger
+
+    SummaryHandler->>DB: SELECT * FROM matches WHERE id = $1
+    DB-->>SummaryHandler: Match row (scores, toss_winner, toss_decision, ai_summary)
+
+    alt Cached summary exists
+        SummaryHandler-->>Frontend: Return cached ai_summary
+    else Generate fresh
+        SummaryHandler->>DB: SELECT batters (top 5 by runs)
+        SummaryHandler->>DB: SELECT bowlers (top 5 by wickets)
+        SummaryHandler->>DB: COUNT legal ball_events per innings
+        SummaryHandler->>LLM: Send factual match prompt
+        LLM-->>SummaryHandler: Return summary text
+        SummaryHandler->>DB: UPDATE matches SET ai_summary = $1
+        SummaryHandler-->>Frontend: Return summary
+    end
+```
+
+### Data Sources
+
+The summary prompt is built from **database facts only** — no estimation or model inference:
+
+| Data Point               | Source                                                          |
+| ------------------------ | --------------------------------------------------------------- |
+| Match result & winner    | `matches.match_winner`, `matches.status`                        |
+| Team scores & wickets    | `matches.team_a_score`, `team_b_score`, etc.                    |
+| Toss winner & decision   | `matches.toss_winner`, `matches.toss_decision`                  |
+| Overs bowled per innings | `COUNT(ball_events)` where extra_type NOT IN ('WIDE','NO_BALL') |
+| Top batters              | `players` JOIN `innings` — sorted by runs DESC                  |
+| Top bowlers              | `bowlers` JOIN `innings` — sorted by wickets DESC               |
+
+### Overs Calculation Strategy
+
+Rather than using the stored `team_a_overs`/`team_b_overs` decimal fields (which can be stale when a match ends mid-over), the handler counts actual legal `ball_events` per innings:
+
+```js
+// Total legal balls → plain English using floor division
+const completedOvers = Math.floor(totalLegalBalls / 6);
+const remainder = totalLegalBalls % 6;
+// → "1 over", "5 balls", "1 over and 2 balls" etc.
+```
+
+This guarantees accuracy even when the match ended on ball 6 (which would otherwise read as `0.5` in the decimal field).
+
+### Prompt Engineering
+
+The LLM receives a tightly-scoped, factual prompt:
+
+- Overs are pre-computed to plain English **before** the prompt — no decimals are ever passed to the model.
+- The toss winner/decision is injected verbatim from the DB as a concrete instruction.
+- The model is told: _"Overs are already pre-calculated in plain English for you below. Use them exactly as written."_
+- Creativity is intentionally constrained: _"Do not be overly creative or dramatic. Keep it straightforward."_
+
+### Caching
+
+Once generated, the summary is cached in `matches.ai_summary`. Subsequent requests return the cached value instantly without calling the LLM again. Admins can clear the cache by setting `ai_summary = NULL` in the DB (or a future admin API endpoint).
+
+---
+
 ## 🛠️ Agentic Text-to-SQL Gotchas & Fixes
 
 While building the Agentic SQL RAG, we encountered and resolved several common hallucination/execution issues:
@@ -204,6 +282,21 @@ While building the Agentic SQL RAG, we encountered and resolved several common h
 - **Bug:** When users asked vague rules questions like "break timings?" without explicitly saying "in my rulebook", the LLM skipped the `search_tournament_rules` tool entirely and answered from its general cricket training data, giving generic ICC rules instead of tournament-specific ones.
 - **Fix (1) - Stronger System Prompt:** Updated the routing instruction to a strict mandate: _"NEVER answer a rulebook-type question from memory. Always search first, then answer based on the retrieved chunks. The rulebook has tournament-specific rules that override general cricket knowledge."_
 - **Fix (2) - DB_SCHEMA Escaping Bug:** The database schema was being sent to the LLM as a literal `${DB_SCHEMA}` string (due to a `\\$` escape in a JavaScript template literal) instead of the actual table definitions. Fixed by removing the erroneous backslash escape.
+
+14. **AI Post-Match Summary — Toss Outcome Hallucination:**
+
+- **Bug:** The AI summary invented or assumed the toss result (e.g., "Team A won the toss and elected to bat") even when Team B actually won the toss and bowled. This happened because the original match creation used a single `batFirstTeam` field — the AI had no factual toss data and guessed based on batting order.
+- **Fix:** Added `toss_winner` and `toss_decision` columns to the `matches` table. The Match Setup screen now collects these explicitly. The `summaryHandler.js` reads them from the DB and injects them verbatim into the prompt: _"Mention the toss details: [TEAM X] won the toss and elected to [BAT/BOWL]."_
+
+15. **AI Post-Match Summary — Decimal Over Notation ("0.5 overs", "1.1 overs"):**
+
+- **Bug:** The AI wrote "Team B chased in 0.5 overs" instead of "5 balls". The original `formatOvers()` helper produced strings like `"0.5 overs (0 completed overs and 5 balls)"`. The LLM latched onto the decimal prefix and used it verbatim, ignoring the parenthetical description.
+- **Fix:** Replaced `formatOvers()` with `ballsToOversText()` which emits **only** plain English from a raw ball count — no decimals at all. The prompt was updated from _"Always write out overs in plain English"_ to _"Overs are already pre-calculated in plain English for you below. Use them exactly as written."_ This completely removes any ambiguity.
+
+16. **AI Post-Match Summary — "5 Balls" Shown for a Complete 1-Over Innings:**
+
+- **Bug:** A team that chased the target on ball 6 (completing exactly 1 over) was shown as having batted "5 balls" in the summary. The root cause was a race condition in the scoring engine: when the match-winning ball is recorded, the match immediately moves to `COMPLETED` state — but the over-flip transition (`overs=0.5 → overs=1.0`) runs on the _next_ state tick, which never fires. As a result, `matches.team_b_overs` was persisted as `0.5`.
+- **Fix:** `summaryHandler.js` no longer reads the stored `team_a_overs`/`team_b_overs` decimal fields for the AI summary. Instead, it runs a fresh query to `COUNT` the actual legal `ball_events` per innings (`extra_type NOT IN ('WIDE','NO_BALL')`), then converts the total to overs using floor division. This is always correct, regardless of whether the over counter was finalized at match end.
 
 ---
 
