@@ -10,6 +10,8 @@ import {
 import MatchSetup from "./components/MatchSetup";
 import MatchView from "./components/MatchView";
 import LiveScoreboard from "./components/LiveScoreboard"; // Added Phase 6
+import { ChatComponent } from "./components/ChatComponent";
+import { Shield } from "lucide-react";
 
 // Key helper for saving match state by email
 const getMatchStateKey = (email: string) =>
@@ -37,8 +39,6 @@ const App: React.FC = () => {
   const isEndingInningsRef = React.useRef(false);
 
   // Auto-position cursor before @gmail.com when modal opens
-
-  // Auto-position cursor before @gmail.com when modal opens
   useEffect(() => {
     if (
       authModal.isOpen &&
@@ -54,20 +54,22 @@ const App: React.FC = () => {
     }
   }, [authModal.isOpen, authModal.targetView]);
 
-  const [view, setView] = useState<"VIEWER" | "SCORER" | "ADMIN">(() => {
-    const savedView = sessionStorage.getItem("last_view") as any;
-    if (
-      savedView === "ADMIN" &&
-      sessionStorage.getItem("auth_admin") !== "true"
-    )
-      return "VIEWER";
-    if (
-      savedView === "SCORER" &&
-      sessionStorage.getItem("auth_scorer") !== "true"
-    )
-      return "VIEWER";
-    return savedView || "VIEWER";
-  });
+  const [view, setView] = useState<"VIEWER" | "SCORER" | "ADMIN" | "CHAT">(
+    () => {
+      const savedView = sessionStorage.getItem("last_view") as any;
+      if (
+        savedView === "ADMIN" &&
+        sessionStorage.getItem("auth_admin") !== "true"
+      )
+        return "VIEWER";
+      if (
+        savedView === "SCORER" &&
+        sessionStorage.getItem("auth_scorer") !== "true"
+      )
+        return "VIEWER";
+      return savedView || "VIEWER";
+    },
+  );
 
   // Security: Auto-open modal if unauthorized on a restricted view
   useEffect(() => {
@@ -98,6 +100,12 @@ const App: React.FC = () => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [hasSentAutoEmail, setHasSentAutoEmail] = useState<boolean>(false);
   const hasSentAutoEmailRef = useRef(false);
+
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+
+  const [isUploadingRules, setIsUploadingRules] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   // Helper to load match state based on email
@@ -467,6 +475,7 @@ const App: React.FC = () => {
       setTeamB(tB);
       setTotalOvers(match.total_overs);
       setMatchId(mId);
+      setAiSummary(match.ai_summary || null);
 
       // 2. Reconstruct Innings State
       const mapInnings = (inn: any): InningsState => {
@@ -605,9 +614,9 @@ const App: React.FC = () => {
     setAuthModal({ isOpen: false, targetView: null });
   };
 
-  const handleViewClick = (target: "VIEWER" | "SCORER" | "ADMIN") => {
-    if (target === "VIEWER") {
-      setView("VIEWER");
+  const handleViewClick = (target: "VIEWER" | "SCORER" | "ADMIN" | "CHAT") => {
+    if (target === "VIEWER" || target === "CHAT") {
+      setView(target);
       setHubKey((k) => k + 1);
       return;
     }
@@ -836,6 +845,56 @@ const App: React.FC = () => {
     }
   }, [matchStatus, matchId, hasSentAutoEmail]);
 
+  const handleGenerateAiSummary = async () => {
+    if (!matchId) return;
+    setIsGeneratingAi(true);
+    const API_URL = import.meta.env.VITE_API_URL || "";
+    try {
+      const response = await fetch(`${API_URL}/chat/summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to generate");
+      setAiSummary(data.summary);
+    } catch (error) {
+      console.error(error);
+      setAlertMessage("Failed to generate AI summary.");
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
+
+  const handleRulesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingRules(true);
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || "";
+        const response = await fetch(`${API_URL}/rules/upload`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileBase64: reader.result }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Upload failed");
+        setAlertMessage(
+          `✅ Rules uploaded! Processed ${data.chunksProcessed} sections.`,
+        );
+      } catch (err: any) {
+        setAlertMessage(`❌ Upload failed: ${err.message}`);
+      } finally {
+        setIsUploadingRules(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+  };
+
   return (
     <div className="h-[100dvh] bg-slate-950 font-sans text-slate-100 flex flex-col overflow-hidden relative">
       {/* Global Header Switcher */}
@@ -856,9 +915,16 @@ const App: React.FC = () => {
             </button>
             <button
               onClick={() => handleViewClick("ADMIN")}
-              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${view === "ADMIN" ? "bg-rose-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"}`}
+              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1 ${view === "ADMIN" ? "bg-red-600 text-white shadow-[0_0_15px_rgba(220,38,38,0.3)]" : "text-slate-500 hover:text-slate-300"}`}
             >
-              Admin ⚡
+              <Shield size={12} />
+              Admin
+            </button>
+            <button
+              onClick={() => handleViewClick("CHAT")}
+              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1 ${view === "CHAT" ? "bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]" : "text-slate-500 hover:text-slate-300"}`}
+            >
+              AI Chat ✨
             </button>
           </div>
 
@@ -1055,6 +1121,40 @@ const App: React.FC = () => {
                   }
                 />
               </div>
+
+              {view === "ADMIN" && (
+                <div className="bg-slate-900/50 border border-white/5 p-6 rounded-[2rem] backdrop-blur-3xl shadow-2xl flex flex-col items-center gap-4 text-center">
+                  <div className="bg-indigo-500/10 p-4 rounded-full text-indigo-400">
+                    <Shield size={24} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-white uppercase tracking-wider">
+                      Tournament Rules Knowledge Base
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Upload a PDF rulebook to empower the AI Chatbot to answer
+                      rule-related questions automatically via Vector Semantic
+                      Search.
+                    </p>
+                  </div>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    ref={fileInputRef}
+                    onChange={handleRulesUpload}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingRules}
+                    className="mt-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                  >
+                    {isUploadingRules
+                      ? "Processing PDF & Extracting Vectors..."
+                      : "Upload PDF Rulebook"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1189,6 +1289,31 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* AI Summary Section */}
+                  <div className="w-full space-y-4 pt-6">
+                    {aiSummary ? (
+                      <div className="bg-slate-950/50 border border-indigo-500/30 rounded-3xl p-6 text-left shadow-2xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full pointer-events-none"></div>
+                        <h3 className="text-xl font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                          <span className="text-2xl">✨</span> AI Match Analysis
+                        </h3>
+                        <div className="prose prose-invert prose-indigo max-w-none text-slate-300 whitespace-pre-wrap">
+                          {aiSummary}
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleGenerateAiSummary}
+                        disabled={isGeneratingAi}
+                        className="w-full h-16 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black text-lg uppercase tracking-widest hover:from-indigo-500 hover:to-purple-500 active:scale-[0.98] transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isGeneratingAi
+                          ? "GENERATING ANALYSIS..."
+                          : "✨ GENERATE AI REPORT"}
+                      </button>
+                    )}
+                  </div>
+
                   <div className="mt-12 w-full space-y-4">
                     <div className="flex flex-col md:flex-row gap-4 w-full">
                       <button
@@ -1220,6 +1345,13 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
+
+      {view === "CHAT" && (
+        <ChatComponent
+          matchId={matchId}
+          apiUrl={import.meta.env.VITE_API_URL}
+        />
+      )}
 
       {alertMessage && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center z-[400] p-4 backdrop-blur-md">
