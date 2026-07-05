@@ -5,6 +5,7 @@
   "main": "index.js",
   "type": "commonjs",
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.1079.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "openai": "^4.28.0",
     "pdf-parse": "^2.4.5",

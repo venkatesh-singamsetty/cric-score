@@ -203,6 +203,7 @@ const MatchSetup: React.FC<MatchSetupProps> = ({
           batFirstTeam: batFirstTeamName,
           teamASquad: teamA.players,
           teamBSquad: teamB.players,
+          scorerEmail: initialEmail,
         }),
       });
 

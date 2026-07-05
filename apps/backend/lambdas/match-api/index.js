@@ -482,15 +482,22 @@ exports.handler = async (event) => {
     }
 
     if (httpMethod === "POST" && path === "/match") {
-      const { teamA, teamB, totalOvers, batFirstTeam, teamASquad, teamBSquad } =
-        JSON.parse(body);
+      const {
+        teamA,
+        teamB,
+        totalOvers,
+        batFirstTeam,
+        teamASquad,
+        teamBSquad,
+        scorerEmail,
+      } = JSON.parse(body);
 
       await client.query("BEGIN");
       try {
         // 1. Create the Match
         const res = await client.query(
-          "INSERT INTO matches (team_a_name, team_b_name, total_overs, bat_first_team, status) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-          [teamA, teamB, totalOvers, batFirstTeam, "LIVE"],
+          "INSERT INTO matches (team_a_name, team_b_name, total_overs, bat_first_team, status, scorer_email) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+          [teamA, teamB, totalOvers, batFirstTeam, "LIVE", scorerEmail],
         );
         const matchId = res.rows[0].id;
 

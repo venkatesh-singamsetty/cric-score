@@ -1,5 +1,6 @@
 const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
 const { z } = require("zod");
+const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
 
 function createCricScoreMcpServer(pool) {
   const server = new McpServer({
@@ -115,6 +116,51 @@ function createCricScoreMcpServer(pool) {
       return {
         content: [{ type: "text", text: searchResult }],
       };
+    },
+  );
+  // Tool 3: send_email
+  server.tool(
+    "send_email",
+    "Send an email to one or more recipients using AWS SES.",
+    {
+      to: z.array(z.string()).describe("Array of recipient email addresses."),
+      subject: z.string().describe("The subject of the email."),
+      body: z.string().describe("The HTML or plain text body of the email."),
+    },
+    async ({ to, subject, body }) => {
+      console.log("MCP Server Sending Email to:", to);
+      const ses = new SESClient({
+        region: process.env.AWS_REGION || "us-east-1",
+      });
+      const sourceEmail =
+        process.env.TF_SES_SOURCE_EMAIL || "noreply@venkateshsingamsetty.site";
+
+      try {
+        const command = new SendEmailCommand({
+          Source: sourceEmail,
+          Destination: { ToAddresses: to },
+          Message: {
+            Subject: { Data: subject },
+            Body: { Html: { Data: body } },
+          },
+        });
+        await ses.send(command);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Successfully sent email to ${to.join(", ")}`,
+            },
+          ],
+        };
+      } catch (err) {
+        console.error("Email Tool Error:", err);
+        return {
+          content: [
+            { type: "text", text: `Failed to send email: ${err.message}` },
+          ],
+        };
+      }
     },
   );
 
