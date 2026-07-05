@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Pool } from "pg";
 const { chatHandler } = require("../handlers/chatHandler.js");
 const { openai } = require("../config/llm.js");
+const { createCricScoreMcpServer } = require("../mcp/server");
 
 const mockListTools = vi.fn();
 const mockCallTool = vi.fn();
@@ -15,7 +16,7 @@ vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
 vi.mock("@modelcontextprotocol/sdk/inMemory.js", () => ({
   InMemoryTransport: { createLinkedPair: vi.fn().mockReturnValue([{}, {}]) },
 }));
-vi.mock("../mcp/server.js", () => ({
+vi.mock("../mcp/server", () => ({
   createCricScoreMcpServer: vi.fn().mockReturnValue({ connect: vi.fn() }),
 }));
 

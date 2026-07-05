@@ -104,8 +104,6 @@ const App: React.FC = () => {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
-  const [isUploadingRules, setIsUploadingRules] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   // Helper to load match state based on email
@@ -870,35 +868,6 @@ const App: React.FC = () => {
     }
   }, [matchStatus, matchId, hasSentAutoEmail]);
 
-  const handleRulesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingRules(true);
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = async () => {
-      try {
-        const API_URL = import.meta.env.VITE_API_URL || "";
-        const response = await fetch(`${API_URL}/rules/upload`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileBase64: reader.result }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Upload failed");
-        setAlertMessage(
-          `✅ Rules uploaded! Processed ${data.chunksProcessed} sections.`,
-        );
-      } catch (err: any) {
-        setAlertMessage(`❌ Upload failed: ${err.message}`);
-      } finally {
-        setIsUploadingRules(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      }
-    };
-  };
-
   return (
     <div className="h-[100dvh] bg-slate-950 font-sans text-slate-100 flex flex-col overflow-hidden relative">
       {/* Global Header Switcher */}
@@ -916,13 +885,6 @@ const App: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${view === "SCORER" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"}`}
             >
               Scorer 🎮
-            </button>
-            <button
-              onClick={() => handleViewClick("ADMIN")}
-              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1 ${view === "ADMIN" ? "bg-red-600 text-white shadow-[0_0_15px_rgba(220,38,38,0.3)]" : "text-slate-500 hover:text-slate-300"}`}
-            >
-              <Shield size={12} />
-              Admin
             </button>
             <button
               onClick={() => handleViewClick("CHAT")}
@@ -1125,40 +1087,6 @@ const App: React.FC = () => {
                   }
                 />
               </div>
-
-              {view === "ADMIN" && (
-                <div className="bg-slate-900/50 border border-white/5 p-6 rounded-[2rem] backdrop-blur-3xl shadow-2xl flex flex-col items-center gap-4 text-center">
-                  <div className="bg-indigo-500/10 p-4 rounded-full text-indigo-400">
-                    <Shield size={24} />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-white uppercase tracking-wider">
-                      Tournament Rules Knowledge Base
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Upload a PDF rulebook to empower the AI Chatbot to answer
-                      rule-related questions automatically via Vector Semantic
-                      Search.
-                    </p>
-                  </div>
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    className="hidden"
-                    ref={fileInputRef}
-                    onChange={handleRulesUpload}
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploadingRules}
-                    className="mt-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
-                  >
-                    {isUploadingRules
-                      ? "Processing PDF & Extracting Vectors..."
-                      : "Upload PDF Rulebook"}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -1354,6 +1282,8 @@ const App: React.FC = () => {
         <ChatComponent
           matchId={matchId}
           apiUrl={import.meta.env.VITE_API_URL}
+          isAdmin={isAuthorized.ADMIN}
+          setAlertMessage={setAlertMessage}
         />
       )}
 

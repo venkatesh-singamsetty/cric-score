@@ -69,15 +69,27 @@ async function summaryHandler(matchId, corsHeaders) {
       [matchId],
     );
 
+    // Format overs to prevent AI hallucination
+    const formatOvers = (o) => {
+      if (!o) return "0 overs";
+      const parts = o.toString().split(".");
+      const overs = parts[0];
+      const balls = parts.length > 1 ? parts[1] : "0";
+      return `${o} overs (${overs} completed overs and ${balls} balls)`;
+    };
+
     // Build LLM prompt with match context
-    const prompt = `You are an expert cricket commentator and analyst.
-Please generate a captivating 2-3 paragraph post-match summary for the following match.
-At the end, predict the "Man of the Match" based on the statistics and explain why.
+    const prompt = `You are a factual cricket analyst.
+Please generate a simple, concise 1-2 paragraph post-match summary for the following match. Do not be overly creative or dramatic. Keep it straightforward.
+CRITICAL INSTRUCTIONS:
+- Always write out overs in plain English (e.g., '5 balls' or '1 over and 2 balls') rather than using decimal notation like '0.5 overs' or '1.1 overs'.
+- Mention the toss details: ${m.toss_winner || "Unknown"} won the toss and elected to ${m.toss_decision || "BAT"}.
+At the end, name the "Man of the Match" based on the statistics and give a brief 1 sentence reason.
 
 Match: ${m.team_a_name} vs ${m.team_b_name}
 Result/Status: ${m.status} (Winner: ${m.match_winner || "TBD"})
-Score 1: ${m.team_a_name} - ${m.team_a_score}/${m.team_a_wickets} (${m.team_a_overs} overs)
-Score 2: ${m.team_b_name} - ${m.team_b_score}/${m.team_b_wickets} (${m.team_b_overs} overs)
+Score 1: ${m.team_a_name} - ${m.team_a_score}/${m.team_a_wickets} in ${formatOvers(m.team_a_overs)}
+Score 2: ${m.team_b_name} - ${m.team_b_score}/${m.team_b_wickets} in ${formatOvers(m.team_b_overs)}
 
 Top Batting Performances:
 ${battersRes.rows
@@ -91,7 +103,7 @@ Top Bowling Performances:
 ${bowlersRes.rows
   .map(
     (b) =>
-      `- ${b.name} (${b.bowling_team_name}): ${b.wickets}/${b.runs_conceded} in ${b.overs_completed} overs`,
+      `- ${b.name} (${b.bowling_team_name}): ${b.wickets}/${b.runs_conceded} in ${formatOvers(b.overs_completed)}`,
   )
   .join("\n")}`;
 

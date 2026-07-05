@@ -487,6 +487,8 @@ exports.handler = async (event) => {
         teamB,
         totalOvers,
         batFirstTeam,
+        tossWinner,
+        tossDecision,
         teamASquad,
         teamBSquad,
         scorerEmail,
@@ -496,8 +498,17 @@ exports.handler = async (event) => {
       try {
         // 1. Create the Match
         const res = await client.query(
-          "INSERT INTO matches (team_a_name, team_b_name, total_overs, bat_first_team, status, scorer_email) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-          [teamA, teamB, totalOvers, batFirstTeam, "LIVE", scorerEmail],
+          "INSERT INTO matches (team_a_name, team_b_name, total_overs, bat_first_team, toss_winner, toss_decision, status, scorer_email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+          [
+            teamA,
+            teamB,
+            totalOvers,
+            batFirstTeam,
+            tossWinner,
+            tossDecision,
+            "LIVE",
+            scorerEmail,
+          ],
         );
         const matchId = res.rows[0].id;
 

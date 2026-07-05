@@ -33,7 +33,7 @@ ball_events(id, inning_id, over_number, ball_number, bowler_name, batter_name, r
  * @returns {object} Lambda response object
  */
 async function chatHandler(body, corsHeaders) {
-  const { message, matchId, history = [] } = body;
+  const { message, matchId, history = [], isAdmin = false } = body;
 
   if (!message) {
     return {
@@ -91,7 +91,7 @@ Current Active Match Context: ${matchContext || "None provided"}
   ];
 
   // Step 3: Initialize MCP Server + Client (in-memory, zero infrastructure cost)
-  const mcpServer = createCricScoreMcpServer();
+  const mcpServer = createCricScoreMcpServer(pool, isAdmin);
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
   await mcpServer.connect(serverTransport);

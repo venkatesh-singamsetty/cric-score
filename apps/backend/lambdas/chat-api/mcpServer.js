@@ -2,7 +2,7 @@ const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
 const { z } = require("zod");
 const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
 
-function createCricScoreMcpServer(pool) {
+function createCricScoreMcpServer(pool, isAdmin = false) {
   const server = new McpServer({
     name: "CricScore Database Server",
     version: "1.0.0",
@@ -31,7 +31,14 @@ function createCricScoreMcpServer(pool) {
           await sqlClient.query("BEGIN READ ONLY;");
           await sqlClient.query("SET statement_timeout = 3000;"); // 3s timeout
           const res = await sqlClient.query(query);
-          queryResult = JSON.stringify(res.rows).slice(0, 2000);
+          let rows = res.rows;
+          if (!isAdmin && rows.length > 0) {
+            rows = rows.map((row) => {
+              const { scorer_email, ...safeRow } = row;
+              return safeRow;
+            });
+          }
+          queryResult = JSON.stringify(rows).slice(0, 2000);
           await sqlClient.query("COMMIT;");
         } catch (err) {
           await sqlClient.query("ROLLBACK;");
@@ -118,51 +125,133 @@ function createCricScoreMcpServer(pool) {
       };
     },
   );
-  // Tool 3: send_email
-  server.tool(
-    "send_email",
-    "Send an email to one or more recipients using AWS SES.",
-    {
-      to: z.array(z.string()).describe("Array of recipient email addresses."),
-      subject: z.string().describe("The subject of the email."),
-      body: z.string().describe("The HTML or plain text body of the email."),
-    },
-    async ({ to, subject, body }) => {
-      console.log("MCP Server Sending Email to:", to);
-      const ses = new SESClient({
-        region: process.env.AWS_REGION || "us-east-1",
-      });
-      const sourceEmail =
-        process.env.TF_SES_SOURCE_EMAIL || "noreply@venkateshsingamsetty.site";
+  // Tool 3: send_email (Admin Only)
+  if (isAdmin) {
+    server.tool(
+      "delete_match",
+      "Delete one, multiple, or ALL matches from the database. Pass a single match ID, an array of match IDs, or the special string 'ALL' to delete everything.",
+      {
+        matchId: z
+          .union([z.string(), z.array(z.string())])
+          .describe(
+            "A single match UUID, an array of match UUIDs, or the string 'ALL' to delete all matches.",
+          ),
+      },
+      async ({ matchId }) => {
+        console.log("MCP Server Deleting Match(es):", matchId);
+        const sqlClient = await pool.connect();
+        try {
+          const dbSchema = process.env.DB_SCHEMA || "public";
+          await sqlClient.query(`SET search_path TO ${dbSchema}`);
 
-      try {
-        const command = new SendEmailCommand({
-          Source: sourceEmail,
-          Destination: { ToAddresses: to },
-          Message: {
-            Subject: { Data: subject },
-            Body: { Html: { Data: body } },
-          },
+          let deletedCount = 0;
+
+          if (matchId === "ALL") {
+            // Delete all matches
+            const res = await sqlClient.query(
+              "DELETE FROM matches RETURNING id",
+            );
+            deletedCount = res.rowCount;
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Successfully deleted ALL ${deletedCount} match(es).`,
+                },
+              ],
+            };
+          } else if (Array.isArray(matchId)) {
+            // Delete multiple matches
+            const placeholders = matchId.map((_, i) => `$${i + 1}`).join(", ");
+            const res = await sqlClient.query(
+              `DELETE FROM matches WHERE id IN (${placeholders}) RETURNING id`,
+              matchId,
+            );
+            deletedCount = res.rowCount;
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Successfully deleted ${deletedCount} match(es): ${matchId.join(", ")}`,
+                },
+              ],
+            };
+          } else {
+            // Delete single match
+            await sqlClient.query("DELETE FROM matches WHERE id = $1", [
+              matchId,
+            ]);
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Successfully deleted match ${matchId}.`,
+                },
+              ],
+            };
+          }
+        } catch (err) {
+          console.error("Delete Match Tool Error:", err);
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Failed to delete match(es): ${err.message}`,
+              },
+            ],
+          };
+        } finally {
+          sqlClient.release();
+        }
+      },
+    );
+
+    server.tool(
+      "send_email",
+      "Send an email to one or more recipients using AWS SES.",
+      {
+        to: z.array(z.string()).describe("Array of recipient email addresses."),
+        subject: z.string().describe("The subject of the email."),
+        body: z.string().describe("The HTML or plain text body of the email."),
+      },
+      async ({ to, subject, body }) => {
+        console.log("MCP Server Sending Email to:", to);
+        const ses = new SESClient({
+          region: process.env.AWS_REGION || "us-east-1",
         });
-        await ses.send(command);
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Successfully sent email to ${to.join(", ")}`,
+        const sourceEmail =
+          process.env.TF_SES_SOURCE_EMAIL ||
+          "noreply@venkateshsingamsetty.site";
+
+        try {
+          const command = new SendEmailCommand({
+            Source: sourceEmail,
+            Destination: { ToAddresses: to },
+            Message: {
+              Subject: { Data: subject },
+              Body: { Html: { Data: body } },
             },
-          ],
-        };
-      } catch (err) {
-        console.error("Email Tool Error:", err);
-        return {
-          content: [
-            { type: "text", text: `Failed to send email: ${err.message}` },
-          ],
-        };
-      }
-    },
-  );
+          });
+          await ses.send(command);
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Successfully sent email to ${to.join(", ")}`,
+              },
+            ],
+          };
+        } catch (err) {
+          console.error("Email Tool Error:", err);
+          return {
+            content: [
+              { type: "text", text: `Failed to send email: ${err.message}` },
+            ],
+          };
+        }
+      },
+    );
+  }
 
   return server;
 }

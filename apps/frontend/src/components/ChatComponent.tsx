@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Send, Bot, User } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { Send, Bot, User, Upload } from "lucide-react";
 
 interface Message {
   role: "system" | "user" | "assistant";
@@ -9,21 +9,73 @@ interface Message {
 export function ChatComponent({
   matchId,
   apiUrl,
+  isAdmin = false,
+  setAlertMessage,
 }: {
   matchId: string | null;
   apiUrl: string;
+  isAdmin?: boolean;
+  setAlertMessage: (msg: string) => void;
 }) {
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: "Hi! Ask me anything about the live match!" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isUploadingRules, setIsUploadingRules] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleRulesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingRules(true);
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/rules/upload`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileBase64: reader.result }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Upload failed");
+        setAlertMessage(
+          `✅ Rules uploaded! Processed ${data.chunksProcessed} sections.`,
+        );
+      } catch (err: any) {
+        setAlertMessage(`❌ Upload failed: ${err.message}`);
+      } finally {
+        setIsUploadingRules(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+  };
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || loading) return;
+    const inputText = input.trim();
+    if (!inputText || loading) return;
 
-    const userMsg = { role: "user" as const, content: input.trim() };
+    if (inputText.startsWith("/login ")) {
+      const pin = inputText.split(" ")[1];
+      const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || "2403";
+      if (pin === ADMIN_PIN) {
+        sessionStorage.setItem("auth_admin", "true");
+        window.location.reload();
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "user", content: inputText },
+          { role: "assistant", content: "❌ Invalid Admin PIN." },
+        ]);
+        setInput("");
+      }
+      return;
+    }
+
+    const userMsg = { role: "user" as const, content: inputText };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
@@ -35,7 +87,12 @@ export function ChatComponent({
       const res = await fetch(`${apiUrl}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg.content, matchId, history }),
+        body: JSON.stringify({
+          message: userMsg.content,
+          matchId,
+          history,
+          isAdmin,
+        }),
       });
       const data = await res.json();
 
@@ -67,6 +124,25 @@ export function ChatComponent({
           <Bot className="text-indigo-400" />
           Live Match AI Assistant
         </h3>
+        {isAdmin && (
+          <div className="flex items-center">
+            <input
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleRulesUpload}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingRules}
+              className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 text-xs font-bold rounded-lg transition-colors border border-indigo-500/30 disabled:opacity-50"
+            >
+              <Upload size={14} />
+              {isUploadingRules ? "Uploading..." : "Upload Rules PDF"}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">

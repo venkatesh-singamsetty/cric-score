@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting Local Deployment to DEV..."
+echo "🚀 Starting Local Deployment to PROD..."
 
 # Load local environment variables
 if [ -f ".env.local" ]; then
@@ -12,7 +12,7 @@ else
   exit 1
 fi
 
-export TF_VAR_environment="dev"
+export TF_VAR_environment="prod"
 export TF_VAR_database_url="$TF_DATABASE_URL"
 export TF_VAR_ses_source_email="$TF_SES_SOURCE_EMAIL"
 export TF_VAR_admin_email="$ADMIN_EMAIL"
@@ -26,19 +26,19 @@ for d in apps/backend/lambdas/*; do
   fi
 done
 
-echo "🏗️ Applying Terraform (DEV)..."
+echo "🏗️ Applying Terraform (PROD)..."
 cd infra/terraform
-terraform init -reconfigure -backend-config="key=cricscore/dev/terraform.tfstate"
-terraform apply -var-file="environments/dev.tfvars" -auto-approve
+terraform init -reconfigure -backend-config="key=cricscore/prod/terraform.tfstate"
+terraform apply -var-file="environments/prod.tfvars" -auto-approve
 cd ../../
 
 echo "🌐 Getting AWS outputs for frontend..."
-API_GATEWAY_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='cricscoredev-api'].ApiId" --output text | head -n 1)
-WS_API_GATEWAY_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='cricscoredev-websocket-api'].ApiId" --output text | head -n 1)
-CLOUDFRONT_DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Aliases.Items!=null] | [?contains(Aliases.Items, 'cricscoredev.venkateshsingamsetty.site')].Id" --output text | head -n 1)
+API_GATEWAY_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='cricscore-api'].ApiId" --output text | head -n 1)
+WS_API_GATEWAY_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='cricscore-websocket-api'].ApiId" --output text | head -n 1)
+CLOUDFRONT_DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Aliases.Items!=null] | [?contains(Aliases.Items, 'cricscore.venkateshsingamsetty.site')].Id" --output text | head -n 1)
 S3_BUCKET=$(cd infra/terraform && terraform output -raw s3_bucket_name)
 
-export VITE_APP_TITLE="CricScoreDev"
+export VITE_APP_TITLE="CricScore"
 export VITE_API_URL="https://${API_GATEWAY_ID}.execute-api.us-east-1.amazonaws.com"
 export VITE_WS_URL="wss://${WS_API_GATEWAY_ID}.execute-api.us-east-1.amazonaws.com/prod"
 export VITE_ADMIN_PIN="1234" # Or fetch from secrets
@@ -58,4 +58,4 @@ aws s3 cp apps/frontend/dist/index.html s3://${S3_BUCKET}/index.html --cache-con
 echo "🧹 Invalidating CloudFront Cache ($CLOUDFRONT_DISTRIBUTION_ID)..."
 aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"
 
-echo "✅ Local DEV Deployment Complete!"
+echo "✅ Local PROD Deployment Complete!"

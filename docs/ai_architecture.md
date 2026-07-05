@@ -83,7 +83,7 @@ CricScore natively implements the **Model Context Protocol (MCP)** to standardis
 
 Instead of tightly coupling database and vector logic directly into the LLM chat router loop, the `chat-api` Lambda operates using an **MCP Client-Server Architecture**:
 
-1. **MCP Server (`mcpServer.js`):** A standalone module that defines the tools (`execute_sql`, `search_tournament_rules`, `send_email`) using the `@modelcontextprotocol/sdk`. It manages the database pooling and security parameters internally.
+1. **MCP Server (`mcpServer.js`):** A standalone module that defines the tools (`execute_sql`, `search_tournament_rules`, `send_email`, `delete_match`) using the `@modelcontextprotocol/sdk`. It manages the database pooling and security parameters internally.
 2. **MCP Client (`index.js`):** The main Lambda handler instantiates an MCP Client, connects to the MCP Server via `InMemoryTransport`, and dynamically lists the tools. When the LLM decides to call a tool, the client simply delegates the call via the standardized `client.callTool()` interface.
 
 _Why use `InMemoryTransport`?_ Standard MCP typically runs over `stdio` or WebSockets/SSE for local IDE or distributed execution. By utilizing the `InMemoryTransport` within the Lambda, we achieve the perfect architectural decoupling and standardization of MCP without needing to provision expensive, long-running ECS/EC2 containers to host an SSE server!
@@ -92,7 +92,7 @@ _Why use `InMemoryTransport`?_ Standard MCP typically runs over `stdio` or WebSo
 
 We have extended the PostgreSQL database with the `pgvector` extension to serve as a native Vector Database alongside our relational data. This completely removes the need for a third-party vector database (like Pinecone).
 
-1. **PDF Processing (`/rules/upload`):** Admins can upload a PDF rulebook via the Control Center. The `chat-api` Lambda receives the base64 encoded PDF, uses `pdf-parse` (v2) to extract text, and splits the text into chunks.
+1. **PDF Processing (`/rules/upload`):** Admins can upload a PDF rulebook via the AI Chatbot (shown only when logged in as Admin). The `chat-api` Lambda receives the base64 encoded PDF, uses `pdf-parse` (v2) to extract text, and splits the text into chunks.
 2. **Batch Embedding Generation:** To prevent AWS API Gateway from timing out (30-second hard limit), the backend passes all chunks in a single batched array request to OpenAI's `text-embedding-3-small` model.
 3. **Storage:** The chunks and their 1536-dimensional embeddings are stored in the `tournament_rules` table.
 4. **Agentic Tool:** The LLM is provided the `search_tournament_rules` tool. If a user asks a rule-related question, the LLM calls this tool, and the backend performs a semantic vector search (`<=>`) against `pgvector` to return the 3 most relevant paragraphs to the LLM.
@@ -259,3 +259,60 @@ This AI architecture is specifically designed to be **Serverless** and **Pay-Per
 
 - **Model Choice:** By using OpenRouter, we can dynamically route to the most cost-effective models. Using models like `gpt-4o-mini` or open-source equivalents provides exceptional function-calling accuracy at a fraction of a cent per request.
 - **Embeddings:** Vector embeddings are generated using `text-embedding-3-small`, which is remarkably cheap and highly performant for semantic rulebook search.
+
+---
+
+## 🔐 Admin Tools & Secret Login
+
+The Admin Tab has been intentionally **removed** from the public navigation bar to prevent unauthorized users from discovering administrative capabilities.
+
+### Secret Login via Chatbot
+
+Administrators log in by typing a hidden slash command directly into the AI chatbot:
+
+```
+/login <pin>
+```
+
+- If the PIN matches `VITE_ADMIN_PIN` (env variable, default `2403`), `sessionStorage` is updated with `auth_admin=true` and the page reloads in admin mode.
+- If the PIN is wrong, the chatbot displays `❌ Invalid Admin PIN.` locally — no API call is ever made.
+
+### Admin-Only MCP Tools
+
+Once authenticated as admin, the MCP Server exposes **additional tools** that are hidden from regular users:
+
+| Tool             | Description                                                             |
+| ---------------- | ----------------------------------------------------------------------- |
+| `delete_match`   | Delete a **single**, **multiple**, or **ALL** matches from the database |
+| `send_email`     | Send a custom HTML email to one or more recipients via AWS SES          |
+| Upload PDF Rules | The upload button becomes visible in the chatbot header for admins      |
+
+#### `delete_match` Usage Examples
+
+Ask the chatbot naturally:
+
+- _"Delete match `abc-123`"_ → deletes one match by ID
+- _"Delete matches `abc-123` and `def-456`"_ → deletes two matches
+- _"Delete all matches"_ → wipes all matches from the database
+
+The tool internally handles all three cases:
+
+```js
+// Single ID
+DELETE FROM matches WHERE id = $1
+
+// Multiple IDs
+DELETE FROM matches WHERE id IN ($1, $2, ...)
+
+// All
+DELETE FROM matches RETURNING id
+```
+
+### Toss Details in Match Creation
+
+Match setup now captures full toss information:
+
+- **Toss Winner**: Which team won the coin toss
+- **Toss Decision**: Whether they elected to Bat or Bowl
+
+These fields are persisted to the `matches` table (`toss_winner`, `toss_decision` columns) and included in the AI post-match summary automatically.
