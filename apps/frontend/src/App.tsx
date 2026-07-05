@@ -830,21 +830,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Auto-trigger email on match completion
-  useEffect(() => {
-    if (matchStatus === MatchStatus.COMPLETED) {
-      if (!hasSentAutoEmail && !hasSentAutoEmailRef.current) {
-        hasSentAutoEmailRef.current = true;
-        setHasSentAutoEmail(true);
-        handleSendEmail(true, true); // Silent send with admin copy
-      }
-    }
-    if (matchStatus === MatchStatus.SETUP) {
-      hasSentAutoEmailRef.current = false;
-      setHasSentAutoEmail(false); // Reset for next match
-    }
-  }, [matchStatus, matchId, hasSentAutoEmail]);
-
   const handleGenerateAiSummary = async () => {
     if (!matchId) return;
     setIsGeneratingAi(true);
@@ -865,6 +850,25 @@ const App: React.FC = () => {
       setIsGeneratingAi(false);
     }
   };
+
+  // Auto-trigger email and AI summary on match completion
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (matchStatus === MatchStatus.COMPLETED) {
+      if (!hasSentAutoEmail && !hasSentAutoEmailRef.current) {
+        hasSentAutoEmailRef.current = true;
+        setHasSentAutoEmail(true);
+        // Generate AI Summary first, then send email so summary is included
+        handleGenerateAiSummary().finally(() => {
+          handleSendEmail(true, true); // Silent send with admin copy
+        });
+      }
+    }
+    if (matchStatus === MatchStatus.SETUP) {
+      hasSentAutoEmailRef.current = false;
+      setHasSentAutoEmail(false); // Reset for next match
+    }
+  }, [matchStatus, matchId, hasSentAutoEmail]);
 
   const handleRulesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -37,6 +37,7 @@ const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
     teamA: string;
     teamB: string;
     totalOvers: number;
+    aiSummary?: string | null;
   } | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [showFullScorecard, setShowFullScorecard] = useState(false);
@@ -55,6 +56,7 @@ const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
           teamA: data.match.team_a_name,
           teamB: data.match.team_b_name,
           totalOvers: data.match.total_overs,
+          aiSummary: data.match.ai_summary,
         });
 
         // Map DB rows to InningsState
@@ -599,6 +601,23 @@ const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
                       </button>
                     </div>
                   </div>
+                  {!matchMeta?.aiSummary ? (
+                    <div className="bg-slate-800/30 border border-white/5 rounded-[2rem] p-6 text-center animate-pulse">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center justify-center gap-2">
+                        <span className="animate-spin">⏳</span> GENERATING AI
+                        SUMMARY & MOTM...
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-800/50 border border-indigo-500/30 rounded-[2rem] p-6 text-left shadow-xl animate-in slide-in-from-bottom-4 duration-700">
+                      <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span>🤖</span> AI MATCH SUMMARY & MOTM
+                      </h4>
+                      <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+                        {matchMeta.aiSummary}
+                      </div>
+                    </div>
+                  )}
                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic leading-relaxed opacity-50">
                     This match is safely archived in the cloud.
                   </p>

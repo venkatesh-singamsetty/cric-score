@@ -246,6 +246,18 @@ const sendMatchReportEmail = async (
     htmlBody += `</tbody></table></div>`;
   }
 
+  if (matchRecord.ai_summary) {
+    htmlBody += `
+        <div style="margin-top: 30px; background: #1e293b; padding: 25px; border-radius: 15px; border: 1px solid rgba(99,102,241,0.2);">
+            <h3 style="color: #818cf8; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; display: flex; align-items: center; gap: 8px;">
+                🤖 AI MATCH SUMMARY & MAN OF THE MATCH
+            </h3>
+            <div style="color: #cbd5e1; line-height: 1.6; font-size: 15px; white-space: pre-wrap;">
+                ${matchRecord.ai_summary}
+            </div>
+        </div>`;
+  }
+
   htmlBody += `<p style="text-align: center; color: #475569; font-size: 12px; margin-top: 40px;">Generated securely via CricScore on AWS</p></div>`;
 
   const ses = new SESClient({ region: "us-east-1" });
