@@ -73,6 +73,10 @@ const App: React.FC = () => {
     });
 
     return unsubscribe;
+  }, []);
+        setIsAdmin(false);
+        setUserEmail(null);
+      });
   }, [view]);
   const [hubKey, setHubKey] = useState(0); // For forcing reset to list
   const [urlMatchId, setUrlMatchId] = useState<string | null>(null);
@@ -1022,7 +1026,7 @@ const App: React.FC = () => {
                       Cloud Management & Database Pruning
                     </p>
                   </div>
-                  <div className="bg-slate-900/50 border border-white/5 p-6 rounded-[2rem] backdrop-blur-3xl shadow-2xl mb-8">
+                  <div className="bg-slate-900/50 border border-white/5 p-6 rounded-[2rem] backdrop-blur-3xl shadow-2xl">
                     {isAdmin ? (
                       <AdminPanel />
                     ) : (
@@ -1031,17 +1035,6 @@ const App: React.FC = () => {
                       </div>
                     )}
                   </div>
-
-                  {isAdmin && (
-                    <div className="bg-slate-900/50 border border-white/5 p-6 rounded-[2rem] backdrop-blur-3xl shadow-2xl">
-                      <LiveScoreboard
-                        key={`hub-${hubKey}`}
-                        isAdmin={true}
-                        initialMatchId={urlMatchId || undefined}
-                        onResumeMatch={undefined}
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
             )}
