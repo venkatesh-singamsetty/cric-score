@@ -1,3 +1,21 @@
+# [3.7.0](https://github.com/venkatesh-singamsetty/cricscore/compare/v3.6.0...v3.7.0) (2026-07-06)
+
+### ✨ Features
+
+- **Admin Match Deletion UI**: Added a dedicated Admin tab with a direct "Delete" (trash) button for matches, replacing the AI-only deletion flow for better usability.
+- **Admin Auth Bypass**: If an admin logs in, they are automatically granted Scorer authentication with a default `admin@cricscore.com` email, bypassing the redundant scorer email prompt.
+- **View Persistence**: Added `sessionStorage` tracking for the `view` state so that refreshing the page correctly restores the user to the Admin, Viewer, Scorer, or AI Chat tab they were currently on.
+
+### 🐛 Bug Fixes
+
+- **AI Summary Race Condition**: The AI Match Summary occasionally hallucinated the final score because it queried the database before the background SQS queue finished saving the final ball. Fixed by adding a 2.5-second `setTimeout` in the frontend before triggering the `/chat/summary` endpoint.
+- **AI Summary Prompt Prefix**: Instructed the LLM to start the summary directly with the toss details instead of prepending filler phrases like "In a completed match".
+- **AI Summary Ball Count Discrepancy**: Migrated the match summary ball and over counting logic to rely on the robust `innings` table `overs` and `balls` values rather than manually counting records in the `balls` table.
+- **AI Chat Layout Bug**: Prevented the "FINAL SCORECARD" component from rendering underneath and pushing down the AI Chat interface when a match concludes. The Chat component height was also increased to better utilize vertical screen space.
+- **AI Database Context Truncation**: Increased the JSON output limit in `executeSql.js` from 2,000 to 25,000 characters, allowing the AI to correctly read and analyze all 10+ historical matches instead of truncating at 4 matches.
+
+---
+
 # [3.6.0](https://github.com/venkatesh-singamsetty/cricscore/compare/v3.5.0...v3.6.0) (2026-07-05)
 
 ### ✨ Features

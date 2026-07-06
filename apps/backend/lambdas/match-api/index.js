@@ -181,7 +181,7 @@ const sendMatchReportEmail = async (
             <tbody>`;
 
     players
-      .filter((p) => (p.balls_faced || p.ballsFaced) > 0 || p.is_out)
+      .filter((p) => (p.balls_faced || p.ballsFaced) > 0 || p.is_out || p.isOut)
       .forEach((p) => {
         const r = p.runs || 0;
         const b = p.balls_faced || p.ballsFaced || 0;
@@ -189,10 +189,10 @@ const sendMatchReportEmail = async (
         const s = p.sixes || 0;
 
         let dismissalText = "not out";
-        if (p.is_out) {
-          const wType = p.wicket_type || "";
-          const wBy = p.wicket_by || "unknown bowler";
-          const fName = p.fielder_name || "unknown fielder";
+        if (p.is_out || p.isOut) {
+          const wType = p.wicket_type || p.wicketType || "";
+          const wBy = p.wicket_by || p.wicketBy || "unknown bowler";
+          const fName = p.fielder_name || p.fielderName || "unknown fielder";
 
           if (wType === "BOWLED") dismissalText = `b ${wBy}`;
           else if (wType === "CAUGHT") dismissalText = `c ${fName} b ${wBy}`;
@@ -206,7 +206,7 @@ const sendMatchReportEmail = async (
 
         htmlBody += `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                    <td style="padding: 12px; font-weight: bold;">${p.name} ${p.is_out ? "" : "*"}</td>
+                    <td style="padding: 12px; font-weight: bold;">${p.name} ${p.is_out || p.isOut ? "" : "*"}</td>
                     <td style="padding: 12px; color: #94a3b8; font-size: 12px; font-style: italic;">${dismissalText}</td>
                     <td style="padding: 12px; font-weight: bold;">${r}</td>
                     <td style="padding: 12px; color: #64748b;">${b}</td>

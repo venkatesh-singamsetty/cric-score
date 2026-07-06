@@ -118,7 +118,7 @@ export function ChatComponent({
   };
 
   return (
-    <div className="flex flex-col h-[600px] w-full max-w-4xl mx-auto bg-slate-900 rounded-xl border border-white/10 shadow-2xl overflow-hidden mt-6">
+    <div className="flex flex-col h-[calc(100dvh-120px)] w-full max-w-4xl mx-auto bg-slate-900 rounded-xl border border-white/10 shadow-2xl overflow-hidden mt-6 mb-6">
       <div className="p-4 bg-slate-800 border-b border-white/10 flex items-center justify-between">
         <h3 className="text-xl font-bold text-white flex items-center gap-2">
           <Bot className="text-indigo-400" />

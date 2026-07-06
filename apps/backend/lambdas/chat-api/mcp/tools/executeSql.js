@@ -25,7 +25,7 @@ async function executeSqlTool({ query }) {
       await client.query("BEGIN READ ONLY;");
       await client.query("SET statement_timeout = 3000;"); // 3s hard limit
       const res = await client.query(query);
-      queryResult = JSON.stringify(res.rows).slice(0, 2000); // Truncate for LLM context
+      queryResult = JSON.stringify(res.rows).slice(0, 25000); // Truncate for LLM context, increased from 2000 to handle more matches
       await client.query("COMMIT;");
     } catch (err) {
       await client.query("ROLLBACK;");

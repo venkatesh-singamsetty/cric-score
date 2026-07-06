@@ -220,7 +220,6 @@ const App: React.FC = () => {
         getMatchStateKey(emailTo),
         JSON.stringify(stateToSave),
       );
-      sessionStorage.setItem("last_view", view);
     }
   }, [
     matchStatus,
@@ -235,6 +234,11 @@ const App: React.FC = () => {
     emailTo,
     isAuthorized.SCORER,
   ]);
+
+  // Persist the current view globally
+  useEffect(() => {
+    sessionStorage.setItem("last_view", view);
+  }, [view]);
 
   // 🕒 Auto-Cleanup Timer: If user stays on Completed screen for 5 mins, reset to setup
   useEffect(() => {
@@ -688,8 +692,15 @@ const App: React.FC = () => {
       // ADMIN PIN logic
       const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || "2403";
       if (value === ADMIN_PIN) {
-        setIsAuthorized((prev) => ({ ...prev, ADMIN: true }));
+        setIsAuthorized((prev) => ({ ...prev, ADMIN: true, SCORER: true }));
         sessionStorage.setItem("auth_admin", "true");
+        sessionStorage.setItem("auth_scorer", "true");
+
+        if (!emailTo || emailTo === "@gmail.com") {
+          setEmailTo("admin@cricscore.com");
+          sessionStorage.setItem("scorer_email", "admin@cricscore.com");
+        }
+
         setView("ADMIN");
         setHubKey((k) => k + 1);
         setAuthModal({ isOpen: false, targetView: null });
@@ -857,9 +868,12 @@ const App: React.FC = () => {
         hasSentAutoEmailRef.current = true;
         setHasSentAutoEmail(true);
         // Generate AI Summary first, then send email so summary is included
-        handleGenerateAiSummary().finally(() => {
-          handleSendEmail(true, true); // Silent send with admin copy
-        });
+        // 🕰️ Wait 2.5 seconds to ensure the final ball's SQS message is fully processed by the database
+        setTimeout(() => {
+          handleGenerateAiSummary().finally(() => {
+            handleSendEmail(true, true); // Silent send with admin copy
+          });
+        }, 2500);
       }
     }
     if (matchStatus === MatchStatus.SETUP) {
@@ -905,6 +919,12 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => handleViewClick("ADMIN")}
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1 border ${view === "ADMIN" ? "bg-rose-600 text-white border-rose-500 shadow-[0_0_15px_rgba(225,29,72,0.3)]" : "bg-slate-800/50 text-slate-400 border-white/5 hover:bg-slate-700/50 hover:text-slate-300"}`}
+          >
+            Admin ⚡
+          </button>
           <a
             href="https://github.com/your-username/cricscore/issues/new"
             target="_blank"
@@ -1144,138 +1164,141 @@ const App: React.FC = () => {
             </div>
           )}
 
-        {matchStatus === MatchStatus.COMPLETED && currentInnings && (
-          <div className="h-full overflow-y-auto flex py-10 items-center justify-center p-4 bg-slate-950 selection:bg-indigo-500/30">
-            <div className="relative w-full max-w-2xl animate-in zoom-in-95 duration-500">
-              {/* Dramatic Glow Background */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-indigo-600/10 blur-[120px] rounded-full -z-10"></div>
+        {matchStatus === MatchStatus.COMPLETED &&
+          currentInnings &&
+          view !== "CHAT" && (
+            <div className="h-full overflow-y-auto flex py-10 items-center justify-center p-4 bg-slate-950 selection:bg-indigo-500/30">
+              <div className="relative w-full max-w-2xl animate-in zoom-in-95 duration-500">
+                {/* Dramatic Glow Background */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-indigo-600/10 blur-[120px] rounded-full -z-10"></div>
 
-              <div className="bg-slate-900 border border-white/5 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden backdrop-blur-3xl">
-                {/* Accent Header */}
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600"></div>
+                <div className="bg-slate-900 border border-white/5 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+                  {/* Accent Header */}
+                  <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600"></div>
 
-                <div className="text-center space-y-8">
-                  <div className="space-y-2">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-4">
-                      <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-500">
-                        Official Result
-                      </span>
+                  <div className="text-center space-y-8">
+                    <div className="space-y-2">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-4">
+                        <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-500">
+                          Official Result
+                        </span>
+                      </div>
+                      <div className="text-8xl animate-bounce">🏆</div>
+                      <h1 className="text-6xl font-black text-white uppercase tracking-tighter italic leading-none">
+                        Match
+                        <br />
+                        Concluded
+                      </h1>
                     </div>
-                    <div className="text-8xl animate-bounce">🏆</div>
-                    <h1 className="text-6xl font-black text-white uppercase tracking-tighter italic leading-none">
-                      Match
-                      <br />
-                      Concluded
-                    </h1>
-                  </div>
 
-                  <div className="bg-indigo-600/10 border border-indigo-500/20 rounded-3xl p-8 transform hover:scale-[1.02] transition-transform">
-                    <p className="text-4xl font-black text-indigo-400 uppercase tracking-tight italic drop-shadow-2xl">
-                      {getWinnerMessage()}
-                    </p>
-                  </div>
+                    <div className="bg-indigo-600/10 border border-indigo-500/20 rounded-3xl p-8 transform hover:scale-[1.02] transition-transform">
+                      <p className="text-4xl font-black text-indigo-400 uppercase tracking-tight italic drop-shadow-2xl">
+                        {getWinnerMessage()}
+                      </p>
+                    </div>
 
-                  <div className="space-y-4">
-                    <label className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500">
-                      Final Scorecards
-                    </label>
-                    <div className="grid grid-cols-1 gap-2">
-                      {/* First Innings Summary */}
-                      <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-5 flex justify-between items-center group hover:bg-slate-800 transition-colors">
-                        <div className="text-left">
-                          <span className="text-[10px] font-black text-slate-500 block mb-1 uppercase tracking-widest">
-                            Innings 1
-                          </span>
-                          <span className="text-xl font-black text-slate-300 uppercase tracking-tight italic">
-                            {previousInnings?.battingTeamName}
-                          </span>
+                    <div className="space-y-4">
+                      <label className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500">
+                        Final Scorecards
+                      </label>
+                      <div className="grid grid-cols-1 gap-2">
+                        {/* First Innings Summary */}
+                        <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-5 flex justify-between items-center group hover:bg-slate-800 transition-colors">
+                          <div className="text-left">
+                            <span className="text-[10px] font-black text-slate-500 block mb-1 uppercase tracking-widest">
+                              Innings 1
+                            </span>
+                            <span className="text-xl font-black text-slate-300 uppercase tracking-tight italic">
+                              {previousInnings?.battingTeamName}
+                            </span>
+                          </div>
+                          <div className="text-4xl font-black text-white tabular-nums">
+                            {previousInnings?.totalRuns}
+                            <span className="text-slate-600 mx-1 text-2xl">
+                              /
+                            </span>
+                            {previousInnings?.totalWickets}
+                          </div>
                         </div>
-                        <div className="text-4xl font-black text-white tabular-nums">
-                          {previousInnings?.totalRuns}
-                          <span className="text-slate-600 mx-1 text-2xl">
-                            /
-                          </span>
-                          {previousInnings?.totalWickets}
-                        </div>
-                      </div>
 
-                      {/* Second Innings Summary */}
-                      <div className="bg-indigo-600 border border-indigo-400 rounded-2xl p-5 flex justify-between items-center shadow-xl shadow-indigo-600/20">
-                        <div className="text-left">
-                          <span className="text-[10px] font-black text-indigo-100 block mb-1 uppercase tracking-widest">
-                            Innings 2
-                          </span>
-                          <span className="text-xl font-black text-white uppercase tracking-tight italic">
-                            {currentInnings.battingTeamName}
-                          </span>
-                        </div>
-                        <div className="text-4xl font-black text-white tabular-nums">
-                          {currentInnings.totalRuns}
-                          <span className="text-indigo-300 mx-1 text-2xl">
-                            /
-                          </span>
-                          {currentInnings.totalWickets}
+                        {/* Second Innings Summary */}
+                        <div className="bg-indigo-600 border border-indigo-400 rounded-2xl p-5 flex justify-between items-center shadow-xl shadow-indigo-600/20">
+                          <div className="text-left">
+                            <span className="text-[10px] font-black text-indigo-100 block mb-1 uppercase tracking-widest">
+                              Innings 2
+                            </span>
+                            <span className="text-xl font-black text-white uppercase tracking-tight italic">
+                              {currentInnings.battingTeamName}
+                            </span>
+                          </div>
+                          <div className="text-4xl font-black text-white tabular-nums">
+                            {currentInnings.totalRuns}
+                            <span className="text-indigo-300 mx-1 text-2xl">
+                              /
+                            </span>
+                            {currentInnings.totalWickets}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* AI Summary Section */}
-                  <div className="w-full space-y-4 pt-6">
-                    {aiSummary ? (
-                      <div className="bg-slate-950/50 border border-indigo-500/30 rounded-3xl p-6 text-left shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full pointer-events-none"></div>
-                        <h3 className="text-xl font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                          <span className="text-2xl">✨</span> AI Match Analysis
-                        </h3>
-                        <div className="prose prose-invert prose-indigo max-w-none text-slate-300 whitespace-pre-wrap">
-                          {aiSummary}
+                    {/* AI Summary Section */}
+                    <div className="w-full space-y-4 pt-6">
+                      {aiSummary ? (
+                        <div className="bg-slate-950/50 border border-indigo-500/30 rounded-3xl p-6 text-left shadow-2xl relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full pointer-events-none"></div>
+                          <h3 className="text-xl font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span className="text-2xl">✨</span> AI Match
+                            Analysis
+                          </h3>
+                          <div className="prose prose-invert prose-indigo max-w-none text-slate-300 whitespace-pre-wrap">
+                            {aiSummary}
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={handleGenerateAiSummary}
-                        disabled={isGeneratingAi}
-                        className="w-full h-16 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black text-lg uppercase tracking-widest hover:from-indigo-500 hover:to-purple-500 active:scale-[0.98] transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isGeneratingAi
-                          ? "GENERATING ANALYSIS..."
-                          : "✨ GENERATE AI REPORT"}
-                      </button>
-                    )}
-                  </div>
+                      ) : (
+                        <button
+                          onClick={handleGenerateAiSummary}
+                          disabled={isGeneratingAi}
+                          className="w-full h-16 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black text-lg uppercase tracking-widest hover:from-indigo-500 hover:to-purple-500 active:scale-[0.98] transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isGeneratingAi
+                            ? "GENERATING ANALYSIS..."
+                            : "✨ GENERATE AI REPORT"}
+                        </button>
+                      )}
+                    </div>
 
-                  <div className="mt-12 w-full space-y-4">
-                    <div className="flex flex-col md:flex-row gap-4 w-full">
-                      <button
-                        onClick={copyMatchLink}
-                        className={`flex-1 h-20 rounded-[1.5rem] font-black text-xl uppercase tracking-widest italic transition-all shadow-xl flex items-center justify-center gap-3 ${copyFeedback ? "bg-emerald-600 text-white shadow-emerald-600/20" : "bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-600/20 active:scale-[0.98]"}`}
-                      >
-                        {copyFeedback
-                          ? "LINK COPIED! ✅"
-                          : "SHARE SCORECARD 🔗"}
-                      </button>
-                      <button
-                        onClick={() => setShowResetConfirm(true)}
-                        className="flex-1 h-20 bg-slate-800 text-white rounded-[1.5rem] font-black text-xl uppercase tracking-widest italic hover:bg-slate-700 active:scale-[0.98] transition-all border border-white/10 shadow-2xl flex items-center justify-center gap-3"
-                      >
-                        {view === "SCORER"
-                          ? "START FRESH MATCH 🏏"
-                          : "RESET HUB 🔄"}
-                      </button>
+                    <div className="mt-12 w-full space-y-4">
+                      <div className="flex flex-col md:flex-row gap-4 w-full">
+                        <button
+                          onClick={copyMatchLink}
+                          className={`flex-1 h-20 rounded-[1.5rem] font-black text-xl uppercase tracking-widest italic transition-all shadow-xl flex items-center justify-center gap-3 ${copyFeedback ? "bg-emerald-600 text-white shadow-emerald-600/20" : "bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-600/20 active:scale-[0.98]"}`}
+                        >
+                          {copyFeedback
+                            ? "LINK COPIED! ✅"
+                            : "SHARE SCORECARD 🔗"}
+                        </button>
+                        <button
+                          onClick={() => setShowResetConfirm(true)}
+                          className="flex-1 h-20 bg-slate-800 text-white rounded-[1.5rem] font-black text-xl uppercase tracking-widest italic hover:bg-slate-700 active:scale-[0.98] transition-all border border-white/10 shadow-2xl flex items-center justify-center gap-3"
+                        >
+                          {view === "SCORER"
+                            ? "START FRESH MATCH 🏏"
+                            : "RESET HUB 🔄"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Footer Detail */}
-              <p className="mt-8 text-[10px] font-black text-slate-600 uppercase tracking-[0.5em] text-center italic opacity-50">
-                CricScore Record Log #77291-LIVE
-              </p>
+                {/* Footer Detail */}
+                <p className="mt-8 text-[10px] font-black text-slate-600 uppercase tracking-[0.5em] text-center italic opacity-50">
+                  CricScore Record Log #77291-LIVE
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
 
       {view === "CHAT" && (

@@ -69,51 +69,53 @@ async function summaryHandler(matchId, corsHeaders) {
       [matchId],
     );
 
-    // Count actual legal balls bowled per innings (wides/no-balls don't count)
-    // This is the source of truth - avoids the bug where the stored overs field
-    // is "0.5" even if 6 balls were bowled (because the match ended before the
-    // over counter flipped from 0.5 → 1.0)
+    // Read overs and balls directly from innings table.
+    // This is the most reliable source of truth, as it is synced exactly with the frontend state.
     const ballCountRes = await client.query(
-      `SELECT i.id, i.batting_team_name, i.inning_number,
-              COUNT(be.id) FILTER (WHERE be.extra_type NOT IN ('WIDE','NO_BALL') OR be.extra_type IS NULL) AS legal_balls
+      `SELECT i.id, i.batting_team_name, i.inning_number, i.total_runs, i.total_wickets,
+              i.overs, i.balls
        FROM innings i
-       LEFT JOIN ball_events be ON be.inning_id = i.id
        WHERE i.match_id = $1
-       GROUP BY i.id, i.batting_team_name, i.inning_number
        ORDER BY i.inning_number`,
       [matchId],
     );
 
-    // Convert total legal balls → plain English overs string
-    const ballsToOversText = (totalBalls) => {
-      const b = parseInt(totalBalls, 10) || 0;
-      const completedOvers = Math.floor(b / 6);
-      const remainder = b % 6;
-      if (b === 0) return "0 balls";
-      if (completedOvers === 0)
-        return `${remainder} ball${remainder !== 1 ? "s" : ""}`;
-      if (remainder === 0)
-        return `${completedOvers} over${completedOvers !== 1 ? "s" : ""}`;
-      return `${completedOvers} over${completedOvers !== 1 ? "s" : ""} and ${remainder} ball${remainder !== 1 ? "s" : ""}`;
+    // Format the overs and balls into plain English
+    const formatOvers = (overs, balls) => {
+      const o = parseInt(overs, 10) || 0;
+      const b = parseInt(balls, 10) || 0;
+
+      if (o === 0 && b === 0) return "0 balls";
+      if (o === 0) return `${b} ball${b !== 1 ? "s" : ""}`;
+      if (b === 0) return `${o} over${o !== 1 ? "s" : ""}`;
+      return `${o} over${o !== 1 ? "s" : ""} and ${b} ball${b !== 1 ? "s" : ""}`;
     };
 
     const inn1 = ballCountRes.rows.find((r) => r.inning_number === 1);
     const inn2 = ballCountRes.rows.find((r) => r.inning_number === 2);
-    const score1Overs = inn1 ? ballsToOversText(inn1.legal_balls) : "0 balls";
-    const score2Overs = inn2 ? ballsToOversText(inn2.legal_balls) : "0 balls";
+
+    const score1Overs = inn1 ? formatOvers(inn1.overs, inn1.balls) : "0 balls";
+    const score2Overs = inn2 ? formatOvers(inn2.overs, inn2.balls) : "0 balls";
+
+    const score1Text = inn1
+      ? `Score 1: ${inn1.batting_team_name} - ${inn1.total_runs}/${inn1.total_wickets} in ${score1Overs}`
+      : "Score 1: Not started";
+    const score2Text = inn2
+      ? `Score 2: ${inn2.batting_team_name} - ${inn2.total_runs}/${inn2.total_wickets} in ${score2Overs}`
+      : "Score 2: Not started";
 
     // Build LLM prompt with match context
     const prompt = `You are a factual cricket analyst.
 Please generate a simple, concise 1-2 paragraph post-match summary for the following match. Do not be overly creative or dramatic. Keep it straightforward.
 CRITICAL INSTRUCTIONS:
+- Start your response directly with the toss details (e.g. "${m.toss_winner || "Unknown"} won the toss and elected to ${m.toss_decision || "BAT"}"). Do NOT use filler prefixes like "In a completed match," or "In this match,".
 - Overs are already pre-calculated in plain English for you below. Use them exactly as written.
-- Mention the toss details: ${m.toss_winner || "Unknown"} won the toss and elected to ${m.toss_decision || "BAT"}.
 At the end, name the "Man of the Match" based on the statistics and give a brief 1 sentence reason.
 
 Match: ${m.team_a_name} vs ${m.team_b_name}
 Result/Status: ${m.status} (Winner: ${m.match_winner || "TBD"})
-Score 1: ${m.team_a_name} - ${m.team_a_score}/${m.team_a_wickets} in ${score1Overs}
-Score 2: ${m.team_b_name} - ${m.team_b_score}/${m.team_b_wickets} in ${score2Overs}
+${score1Text}
+${score2Text}
 
 Top Batting Performances:
 ${battersRes.rows

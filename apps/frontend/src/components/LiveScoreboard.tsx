@@ -3,6 +3,7 @@ import { useWebSocket } from "../hooks/useWebSocket";
 import MatchList from "./MatchList"; // Added Phase 6+
 import Scoreboard from "./Scoreboard";
 import { InningsState, ExtraType, WicketType } from "../types";
+import { getCurrentPartnership } from "../utils/partnershipUtils";
 
 interface LiveBall {
   overNumber: number;
@@ -435,6 +436,26 @@ const LiveScoreboard: React.FC<LiveScoreboardProps> = ({
                         </div>
                       ))
                     )}
+                    {currentInnings.allBalls &&
+                      currentInnings.allBalls.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-white/5 flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          <span>Partnership</span>
+                          <span className="text-indigo-400">
+                            {
+                              getCurrentPartnership(currentInnings.allBalls)
+                                .runs
+                            }{" "}
+                            <span className="text-slate-500 text-[9px]">
+                              (
+                              {
+                                getCurrentPartnership(currentInnings.allBalls)
+                                  .balls
+                              }
+                              )
+                            </span>
+                          </span>
+                        </div>
+                      )}
                   </div>
 
                   {/* Bowler */}
