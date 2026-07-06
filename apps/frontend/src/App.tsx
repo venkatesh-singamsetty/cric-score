@@ -11,7 +11,6 @@ import MatchSetup from "./components/MatchSetup";
 import MatchView from "./components/MatchView";
 import LiveScoreboard from "./components/LiveScoreboard"; // Added Phase 6
 import { ChatComponent } from "./components/ChatComponent";
-import { Shield } from "lucide-react";
 
 // Key helper for saving match state by email
 const getMatchStateKey = (email: string) =>

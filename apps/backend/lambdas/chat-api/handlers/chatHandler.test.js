@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Pool } from "pg";
 const { chatHandler } = require("../handlers/chatHandler.js");
 const { openai } = require("../config/llm.js");
-const { createCricScoreMcpServer } = require("../mcp/server");
 
 const mockListTools = vi.fn();
 const mockCallTool = vi.fn();
