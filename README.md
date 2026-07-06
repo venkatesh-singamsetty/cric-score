@@ -178,6 +178,7 @@ The `chat-api` Lambda implements the **Model Context Protocol (MCP)** with two r
 | `execute_sql`             | Text-to-SQL RAG | Writes & executes READ-ONLY SQL to answer live score, player stats, and historical data questions |
 | `search_tournament_rules` | Vector RAG      | Embeds the user query and performs cosine-similarity search against the uploaded PDF rulebook     |
 | `send_email`              | Action          | Dispatches automated emails via AWS SES to scorers or administrators upon request                 |
+| `delete_match`            | Action          | Allows administrators to securely delete single, multiple, or all matches from the database       |
 
 ## AI File Structure
 
