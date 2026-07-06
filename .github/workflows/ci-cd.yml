@@ -20,7 +20,7 @@ env:
 
 jobs:
   validate_frontend:
-    name: Validate Frontend
+    name: Lint & Test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -53,7 +53,7 @@ jobs:
         run: npm run build
 
   validate_backend:
-    name: Validate Backend
+    name: Backend & Terraform Validation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
