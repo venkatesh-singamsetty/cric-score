@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS sent_emails (
 
 CREATE TABLE IF NOT EXISTS tournament_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_name VARCHAR(255) NOT NULL,
     chunk_text TEXT NOT NULL,
     embedding vector(1536),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

@@ -88,14 +88,16 @@ Instead of tightly coupling database and vector logic directly into the LLM chat
 
 _Why use `InMemoryTransport`?_ Standard MCP typically runs over `stdio` or WebSockets/SSE for local IDE or distributed execution. By utilizing the `InMemoryTransport` within the Lambda, we achieve the perfect architectural decoupling and standardization of MCP without needing to provision expensive, long-running ECS/EC2 containers to host an SSE server!
 
-## 📚 Vector RAG: PDF Tournament Rules
+## 📚 Vector RAG: Multi-Document PDF Tournament Rules
 
 We have extended the PostgreSQL database with the `pgvector` extension to serve as a native Vector Database alongside our relational data. This completely removes the need for a third-party vector database (like Pinecone).
 
-1. **PDF Processing (`/rules/upload`):** Admins can upload a PDF rulebook via the AI Chatbot (shown only when logged in as Admin). The `chat-api` Lambda receives the base64 encoded PDF, uses `pdf-parse` (v2) to extract text, and splits the text into chunks.
-2. **Batch Embedding Generation:** To prevent AWS API Gateway from timing out (30-second hard limit), the backend passes all chunks in a single batched array request to OpenAI's `text-embedding-3-small` model.
-3. **Storage:** The chunks and their 1536-dimensional embeddings are stored in the `tournament_rules` table.
-4. **Agentic Tool:** The LLM is provided the `search_tournament_rules` tool. If a user asks a rule-related question, the LLM calls this tool, and the backend performs a semantic vector search (`<=>`) against `pgvector` to return the 3 most relevant paragraphs to the LLM.
+1. **Multi-Document PDF Processing (`/rules/upload`):** Admins can upload multiple distinct PDF rulebooks via the AI Chatbot (shown only when logged in as Admin). The `chat-api` Lambda receives the base64 encoded PDF along with the `fileName`, uses `pdf-parse` (v2) to extract text, and splits the text into chunks.
+2. **Scoped Replacements:** If a document with the same `fileName` is uploaded, the backend first issues a scoped `DELETE FROM tournament_rules WHERE document_name = $1` to wipe the old chunks for that specific document before inserting the new ones.
+3. **Batch Embedding Generation:** To prevent AWS API Gateway from timing out (30-second hard limit), the backend passes all chunks in a single batched array request to OpenAI's `text-embedding-3-small` model.
+4. **Storage:** The chunks, their 1536-dimensional embeddings, and the `document_name` are stored in the `tournament_rules` table.
+5. **Agentic Tool:** The LLM is provided the `search_tournament_rules` tool. If a user asks a rule-related question, the LLM calls this tool, and the backend performs a semantic vector search (`<=>`) against `pgvector` to return the 3 most relevant paragraphs to the LLM, including their source `document_name`.
+6. **Explicit Citations:** The LLM is strictly instructed via its system prompt to explicitly cite `[Source: document_name]` in its final response, so users can trust exactly which rulebook the regulation came from.
 
 ## 🔑 LLM API Key Configuration
 
@@ -389,6 +391,7 @@ Once authenticated as admin, the MCP Server exposes **additional tools** that ar
 | `delete_match`   | Delete a **single**, **multiple**, or **ALL** matches from the database |
 | `send_email`     | Send a custom HTML email to one or more recipients via AWS SES          |
 | Upload PDF Rules | The upload button becomes visible in the chatbot header for admins      |
+| Manage Documents | A "Docs" dropdown allows admins to list and delete specific rulebooks   |
 
 #### `delete_match` Usage Examples
 

@@ -51,12 +51,14 @@ async function searchRulesTool({ query }) {
       const res = await client.query(
         // Cast to public.vector explicitly to resolve <=> operator
         // regardless of which schema (dev/prod) is the active search_path
-        "SELECT chunk_text FROM tournament_rules ORDER BY embedding <=> $1::public.vector LIMIT 3",
+        "SELECT chunk_text, document_name FROM tournament_rules ORDER BY embedding <=> $1::public.vector LIMIT 3",
         [embeddingVectorString],
       );
 
       if (res.rows.length > 0) {
-        searchResult = res.rows.map((r) => r.chunk_text).join("\n\n---\n\n");
+        searchResult = res.rows
+          .map((r) => `[Source: ${r.document_name}]\n${r.chunk_text}`)
+          .join("\n\n---\n\n");
       } else {
         searchResult =
           "No rules document has been uploaded yet, or no relevant rules found.";

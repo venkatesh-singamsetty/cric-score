@@ -173,6 +173,20 @@ resource "aws_apigatewayv2_route" "post_rules_upload" {
   authorization_type = "NONE"
 }
 
+resource "aws_apigatewayv2_route" "get_rules" {
+  api_id             = aws_apigatewayv2_api.http_api.id
+  route_key          = "GET /rules"
+  target             = "integrations/${aws_apigatewayv2_integration.chat_api.id}"
+  authorization_type = "NONE"
+}
+
+resource "aws_apigatewayv2_route" "delete_rules" {
+  api_id             = aws_apigatewayv2_api.http_api.id
+  route_key          = "DELETE /rules"
+  target             = "integrations/${aws_apigatewayv2_integration.chat_api.id}"
+  authorization_type = "NONE"
+}
+
 resource "aws_lambda_permission" "api_gw_chat" {
   statement_id  = "AllowExecutionFromAPIGatewayChat"
   action        = "lambda:InvokeFunction"

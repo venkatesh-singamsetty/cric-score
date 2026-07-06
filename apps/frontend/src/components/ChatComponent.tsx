@@ -1,5 +1,13 @@
 import React, { useState, useRef } from "react";
-import { Send, Bot, User, Upload } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  Upload,
+  Trash2,
+  FileText,
+  ChevronDown,
+} from "lucide-react";
 
 interface Message {
   role: "system" | "user" | "assistant";
@@ -23,7 +31,48 @@ export function ChatComponent({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [isUploadingRules, setIsUploadingRules] = useState(false);
+  const [uploadedDocs, setUploadedDocs] = useState<string[]>([]);
+  const [showDocsDropdown, setShowDocsDropdown] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (isAdmin) {
+      fetchDocs();
+    }
+  }, [isAdmin, apiUrl]);
+
+  const fetchDocs = async () => {
+    try {
+      const res = await fetch(`${apiUrl}/rules`);
+      if (res.ok) {
+        const data = await res.json();
+        setUploadedDocs(data.documents || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch documents", err);
+    }
+  };
+
+  const handleDeleteDoc = async (docName: string) => {
+    if (!window.confirm(`Are you sure you want to delete ${docName}?`)) return;
+    try {
+      const res = await fetch(
+        `${apiUrl}/rules?documentName=${encodeURIComponent(docName)}`,
+        {
+          method: "DELETE",
+        },
+      );
+      if (res.ok) {
+        setAlertMessage(`✅ Deleted ${docName}`);
+        fetchDocs();
+      } else {
+        const data = await res.json();
+        setAlertMessage(`❌ Failed to delete: ${data.error}`);
+      }
+    } catch (err: any) {
+      setAlertMessage(`❌ Failed to delete: ${err.message}`);
+    }
+  };
 
   const handleRulesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -37,13 +86,17 @@ export function ChatComponent({
         const response = await fetch(`${apiUrl}/rules/upload`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileBase64: reader.result }),
+          body: JSON.stringify({
+            fileBase64: reader.result,
+            fileName: file.name,
+          }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Upload failed");
         setAlertMessage(
           `✅ Rules uploaded! Processed ${data.chunksProcessed} sections.`,
         );
+        fetchDocs();
       } catch (err: any) {
         setAlertMessage(`❌ Upload failed: ${err.message}`);
       } finally {
@@ -125,7 +178,53 @@ export function ChatComponent({
           Live Match AI Assistant
         </h3>
         {isAdmin && (
-          <div className="flex items-center">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <button
+                onClick={() => setShowDocsDropdown(!showDocsDropdown)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-slate-700/50 hover:bg-slate-700/80 text-slate-300 text-xs font-bold rounded-lg transition-colors border border-slate-600/50"
+              >
+                <FileText size={14} />
+                Docs ({uploadedDocs.length})
+                <ChevronDown size={14} />
+              </button>
+
+              {showDocsDropdown && (
+                <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                  <div className="p-2 border-b border-slate-700">
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      Uploaded Rulebooks
+                    </span>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {uploadedDocs.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-slate-500">
+                        No docs uploaded
+                      </div>
+                    ) : (
+                      uploadedDocs.map((doc, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between p-2 hover:bg-slate-700/50 group"
+                        >
+                          <span className="text-sm text-slate-300 truncate pr-2">
+                            {doc}
+                          </span>
+                          <button
+                            onClick={() => handleDeleteDoc(doc)}
+                            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded opacity-0 group-hover:opacity-100 transition-all"
+                            title="Delete this rulebook"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <input
               type="file"
               accept="application/pdf"
@@ -139,7 +238,7 @@ export function ChatComponent({
               className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 text-xs font-bold rounded-lg transition-colors border border-indigo-500/30 disabled:opacity-50"
             >
               <Upload size={14} />
-              {isUploadingRules ? "Uploading..." : "Upload Rules PDF"}
+              {isUploadingRules ? "Uploading..." : "Upload Rules"}
             </button>
           </div>
         )}

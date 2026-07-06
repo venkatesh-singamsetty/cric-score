@@ -17,7 +17,7 @@ const { uploadRulesHandler } = require("./handlers/uploadRulesHandler");
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type,Authorization",
-  "Access-Control-Allow-Methods": "OPTIONS,POST",
+  "Access-Control-Allow-Methods": "OPTIONS,GET,POST,DELETE",
 };
 
 exports.handler = async (event) => {
@@ -36,8 +36,20 @@ exports.handler = async (event) => {
       return await summaryHandler(body.matchId, corsHeaders);
     }
 
+    // Route: List Tournament Rulebooks
+    if (event.httpMethod === "GET" && path.includes("/rules")) {
+      const { listRulesHandler } = require("./handlers/listRulesHandler");
+      return await listRulesHandler(event, corsHeaders);
+    }
+
+    // Route: Delete Tournament Rulebook
+    if (event.httpMethod === "DELETE" && path.includes("/rules")) {
+      const { deleteRulesHandler } = require("./handlers/deleteRulesHandler");
+      return await deleteRulesHandler(event, corsHeaders);
+    }
+
     // Route: Tournament Rulebook PDF Upload + Embedding
-    if (path.includes("/rules/upload")) {
+    if (event.httpMethod === "POST" && path.includes("/rules/upload")) {
       return await uploadRulesHandler(event, corsHeaders);
     }
 

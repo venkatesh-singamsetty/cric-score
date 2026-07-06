@@ -30,13 +30,13 @@ enterprise engineering practices applied to a real-world workload.
 
 CricScore features a production-grade **Agentic AI Chat Assistant** powered by:
 
-| Concept                          | Implementation                                                           |
-| -------------------------------- | ------------------------------------------------------------------------ |
-| **Model Context Protocol (MCP)** | Secure, decoupled tool execution — LLM never sees credentials            |
-| **Text-to-SQL RAG**              | LLM autonomously writes & executes SQL to answer live match queries      |
-| **Vector RAG (`pgvector`)**      | Cosine-similarity search against uploaded PDF tournament rulebooks       |
-| **OpenRouter / gpt-4o-mini**     | Cost-effective, reliable LLM with native tool-calling support            |
-| **Dev/Prod Isolation**           | `DB_SCHEMA` env var scopes all queries to the correct environment schema |
+| Concept                               | Implementation                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------ |
+| **Model Context Protocol (MCP)**      | Secure, decoupled tool execution — LLM never sees credentials            |
+| **Text-to-SQL RAG**                   | LLM autonomously writes & executes SQL to answer live match queries      |
+| **Multi-Doc Vector RAG (`pgvector`)** | Cosine-similarity search across multiple uploaded PDF rulebooks          |
+| **OpenRouter / gpt-4o-mini**          | Cost-effective, reliable LLM with native tool-calling support            |
+| **Dev/Prod Isolation**                | `DB_SCHEMA` env var scopes all queries to the correct environment schema |
 
 ---
 

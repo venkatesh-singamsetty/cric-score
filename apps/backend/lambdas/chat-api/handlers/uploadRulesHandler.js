@@ -30,7 +30,7 @@ const { EMBEDDING_BASE_URL, EMBEDDING_MODEL } = require("../config/llm");
 async function uploadRulesHandler(event, corsHeaders) {
   try {
     const body = JSON.parse(event.body || "{}");
-    const { fileBase64 } = body;
+    const { fileBase64, fileName = "rulebook.pdf" } = body;
 
     if (!fileBase64) {
       return {
@@ -70,8 +70,11 @@ async function uploadRulesHandler(event, corsHeaders) {
     try {
       await setSearchPath(client);
 
-      // Step 3: Clear previous rulebook for this environment
-      await client.query("DELETE FROM tournament_rules");
+      // Step 3: Clear previous chunks for THIS specific document
+      await client.query(
+        "DELETE FROM tournament_rules WHERE document_name = $1",
+        [fileName],
+      );
 
       if (validChunks.length > 0) {
         // Step 4: Batch embed all chunks in a single API call (avoids 30s timeout)
@@ -96,15 +99,15 @@ async function uploadRulesHandler(event, corsHeaders) {
 
         const embeddingData = await embeddingRes.json();
 
-        // Step 5: Insert each chunk with its embedding vector
+        // Step 5: Insert each chunk with its embedding vector and document name
         for (let i = 0; i < validChunks.length; i++) {
           const chunk = validChunks[i];
           const embedding = embeddingData.data[i].embedding;
           const embeddingVectorString = `[${embedding.join(",")}]`;
 
           await client.query(
-            "INSERT INTO tournament_rules (chunk_text, embedding) VALUES ($1, $2)",
-            [chunk, embeddingVectorString],
+            "INSERT INTO tournament_rules (chunk_text, embedding, document_name) VALUES ($1, $2, $3)",
+            [chunk, embeddingVectorString, fileName],
           );
           insertedCount++;
         }
