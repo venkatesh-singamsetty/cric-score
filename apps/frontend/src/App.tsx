@@ -925,14 +925,7 @@ const App: React.FC = () => {
           >
             Admin ⚡
           </button>
-          <a
-            href="https://github.com/your-username/cricscore/issues/new"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 py-1.5 bg-slate-800/50 border border-white/5 rounded-lg text-slate-400 hover:text-emerald-400 text-[9px] font-black uppercase tracking-widest transition-all hover:bg-emerald-400/10 flex items-center gap-1"
-          >
-            Feedback 💬
-          </a>
+
           {matchStatus !== MatchStatus.SETUP && view !== "VIEWER" && (
             <button
               onClick={() => setShowResetConfirm(true)}

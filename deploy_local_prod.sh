@@ -19,6 +19,9 @@ export TF_VAR_admin_email="$ADMIN_EMAIL"
 export TF_VAR_llm_api_key="$OPENROUTER_API_KEY"
 export TF_VAR_llm_base_url="https://openrouter.ai/api/v1"
 
+echo "🗄️ Running DB Migrations..."
+(cd infra/database && ./migrate.sh "$TF_DATABASE_URL" "prod")
+
 echo "📦 Installing Lambda dependencies..."
 for d in apps/backend/lambdas/*; do
   if [ -f "$d/package.json" ]; then
