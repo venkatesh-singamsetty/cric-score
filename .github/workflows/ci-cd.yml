@@ -72,6 +72,9 @@ jobs:
             fi
           done
       - name: Run Backend Unit Tests
+        env:
+          LLM_API_KEY: "dummy"
+          OPENAI_API_KEY: "dummy"
         run: |
           cd apps/backend
           npm test
