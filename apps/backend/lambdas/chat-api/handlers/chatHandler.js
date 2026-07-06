@@ -72,6 +72,7 @@ async function chatHandler(body, corsHeaders) {
 2. RULEBOOK QUERIES: If the user asks ANYTHING about rules, regulations, formats, timings, breaks, eligibility, penalties, tiebreakers, LBW, weather, DLS, or any tournament policy → ALWAYS call 'search_tournament_rules' FIRST before answering. Do NOT answer from general cricket knowledge. The rulebook has the tournament-specific rules that override general cricket knowledge.
 3. NEVER answer a rulebook-type question from memory. Always search first, then answer based on the retrieved chunks.
 4. OFF-TOPIC: Refuse anything unrelated to cricket.
+5. DELETE MATCHES (ADMIN): If the user asks to delete matches, you MUST first call 'execute_sql' to fetch the matching records, show them to the user, and explicitly ask for confirmation. ONLY call 'delete_match' AFTER the user says "yes" or confirms the deletion.
 
 ## Database Schema:
 ${DB_SCHEMA}
