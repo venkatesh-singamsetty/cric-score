@@ -181,6 +181,7 @@ resource "aws_lambda_event_source_mapping" "sqs_trigger" {
 }
 
 # --- CloudWatch Alarms & Alerts ---
+# trivy:ignore:AWS-0095 (Topic encryption requires CMK which costs $1/mo, skipped)
 resource "aws_sns_topic" "lambda_alerts" {
   name = "${var.project_name}-lambda-alerts"
 }
