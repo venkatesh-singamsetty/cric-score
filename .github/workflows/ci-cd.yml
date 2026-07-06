@@ -103,7 +103,7 @@ jobs:
 
 
   deploy_and_test_dev:
-    name: Deploy & Test DEV
+    name: Deploy, Test & OWASP ZAP DEV
     needs: [validate_frontend, validate_backend]
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -240,7 +240,7 @@ jobs:
           fail_action: false
 
   deploy_and_test_prod:
-    name: Deploy & Test PROD
+    name: Deploy, Test & OWASP ZAP PROD
     needs: deploy_and_test_dev
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
