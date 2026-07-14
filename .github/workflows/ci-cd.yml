@@ -29,7 +29,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
@@ -59,7 +59,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
       - name: Install Lambda dependencies
@@ -140,7 +140,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
       
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
@@ -277,7 +277,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
       
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
